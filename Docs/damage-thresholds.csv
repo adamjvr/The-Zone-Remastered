@@ -1,0 +1,13 @@
+type,professional_damage_points,beginner_damage_points,source_global_toc,notes
+moth,40,20,11408,manual states 40/25 hits; binary beginner is 20 damage points
+base,25,14,11406,manual states 25/15 hits; binary beginner is 14 damage points
+raid,8,5,11416,
+bee!,5,4,11412,
+roto,20,10,11414,"damage points, not necessarily projectile count"
+seek,15,8,11410,
+bloo,5,4,11418,
+rock,4,4,literal,literal threshold; then fragments/spawns
+aste,1,1,behavior,normally destroyed by one ordinary shot
+ston,1,1,behavior,immediate explosion path
+swar,1,1,behavior,immediate explosion path
+moto,1,1,behavior,immediate explosion path

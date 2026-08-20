@@ -1,0 +1,25 @@
+name: TheZoneRemastered
+options:
+  bundleIdPrefix: com.thezone.remastered
+targets:
+  ZoneCore:
+    type: library.static
+    platform: macOS
+    sources: [ZoneCore/src, ZoneCore/Recovered/src]
+    headers: [ZoneCore/include, ZoneCore/Recovered/include]
+  The Zone macOS:
+    type: application
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources: [Shared, macOS]
+    resources: [Resources/Sprites, Resources/Sounds]
+    dependencies: [{target: ZoneCore}]
+  The Zone iPadOS:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    info:
+      path: iPadOS/Info.plist
+    sources: [Shared, iPadOS]
+    resources: [Resources/Sprites, Resources/Sounds]
+    dependencies: [{target: ZoneCore}]

@@ -1,0 +1,24 @@
+type,sprite_table_toc_offset,sprite_frame_count,side,flag_130,type_state,notes
+ship,10912,48,32,0,,frame=orientation; heading=orientation*7.5
+shot,10964,1,4,0,,"frame=global@11036; cached vector=15*(-sin,cos)[orientation]"
+fire,10964,1,4,0,,"frame=4; cached vector=11.25*(-sin,cos)[orientation]"
+osci,10940,30,24,0,,
+velo,10948,24,24,0,,
+ammo,10944,32,24,0,,
+bonu,10952,30,16,1,23,
+equi,10956,30,16,1,228,
+gadg,10960,30,16,1,31,
+aste,10992,24,32,1,,
+ston,11000,16,24,1,251,
+rock,10996,30,48,1,,
+swar,11004,24,16,1,204,
+bloo,11012,24,16,1,204,
+moto,11008,24,16,1,218,
+bee!,11016,24,32,1,180,
+raid,11020,24,32,1,,
+seek,11024,24,32,1,192,
+roto,11028,24,32,1,156,
+moth,10976,8,48,0,,
+base,10980,8,48,0,,
+expl,,,,0,,dynamic sprite bank/frame count selected from previous_type and previous side
+fake,,0,,0,,sprite_table=NULL; frame=orientation
