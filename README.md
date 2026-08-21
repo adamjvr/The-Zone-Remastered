@@ -2,7 +2,7 @@
   <img src="Docs/images/TheZoneRemastered-Ship.png" alt="The Zone Remastered ship" width="720">
 </p>
 
-# The Zone Remastered — Engineering Milestone 0.2
+# The Zone Remastered — Engineering Milestone 0.3
 
 Native Apple remaster built from the reverse-engineered *TheZone* 1.5.1 game logic and assets.
 
@@ -12,15 +12,19 @@ Native Apple remaster built from the reverse-engineered *TheZone* 1.5.1 game log
 - **The Zone iPadOS** — separate native iPadOS application target. Apple-supported game controllers are first-class; touch controls remain available when no controller is connected.
 - **ZoneCore** — deterministic portable C engine library, with no AppKit/UIKit/Metal dependencies.
 
-## Milestone 0.2
+## Milestone 0.3 — Real Zone, phase 1
 
-- Adds the selected remaster ship artwork as the documentation hero image.
-- Adds a complete native macOS `AppIcon.appiconset` generated from that artwork.
-- Sets the macOS target's asset-catalog app icon to `AppIcon`.
-- Preserves the native target split introduced in 0.1.2: macOS is a real `macosx` target; iPadOS is a real `iphoneos`/`iphonesimulator` iPad-only target.
-- Replaces the milestone prototype's rotated thrust/projectile vector with the recovered original TheZone basis: **X = -sin(angle), Y = cos(angle)**.
-- Routes Classic ship frame selection and thrust acceptance through the recovered `tz_heading_to_frame48`, `tz_wrap_heading`, and `tz_apply_player_thrust` functions.
-- Adds a regression test proving heading 0 accelerates and fires along the recovered positive-Y vector rather than the old provisional +X vector.
+- Corrects the Classic Macintosh coordinate interpretation that caused projectile motion to be rotated relative to the visible ship. The original code stores the recovered vector in **vertical/horizontal** order; portable screen coordinates are therefore `X = cos(angle)`, `Y = -sin(angle)`.
+- Decodes and embeds the shipping **Math resource #2** muzzle table: 48 exact `(x,y)` offsets, one per visible ship frame. Projectile spawn location now comes from the original table rather than an estimated nose distance.
+- Keeps projectile velocity tied to the original integer heading while the muzzle location is tied to the exact visible 48-frame orientation, matching PPC `0x12224`.
+- Corrects portable thrust mapping through the same classic-Mac vertical/horizontal boundary.
+- Replaces the one-asteroid sandbox with the recovered **professional wave-1 population**: 3 asteroids plus 1 Mother Base.
+- Promotes recovered damage thresholds and kill scores into the live core for those objects.
+- Uses the correct size-selected explosion banks: 32px objects use the 11-frame `600` bank and 48px objects use the 11-frame `20000` bank.
+- Adds `BASES` and `ENEMIES` to the live HUD state.
+- Adds regression tests for all 48 muzzle orientations and exact wave-1 population.
+
+The Mother Base's full movement/Bee-spawning state machine remains the next gameplay lift; milestone 0.3 intentionally does not invent those rules.
 
 ## Playable foundation
 
@@ -94,7 +98,7 @@ The source art remains untouched; generated icon PNGs are derived assets.
 
 ## Accuracy status
 
-Milestone 0.2 is an executable remaster foundation, not yet a claim of 100% behavior parity. Exact sprite collision, object/save layouts, damage tables, fixed wave presets, several AI routines and core motion semantics have been recovered. Remaining AI/collision/wave/projectile/equipment state machines are being lifted into `ZoneCore/Recovered` and will replace temporary milestone logic subsystem-by-subsystem.
+Milestone 0.3 is the first transition from the engineering sandbox into recovered game population. It is not yet a claim of 100% behavior parity. Exact sprite collision, object/save layouts, damage tables, fixed wave presets, several AI routines and core motion semantics have been recovered. Remaining AI/collision/wave/projectile/equipment state machines are being lifted into `ZoneCore/Recovered` and will replace temporary milestone logic subsystem-by-subsystem.
 
 ## Asset completeness
 

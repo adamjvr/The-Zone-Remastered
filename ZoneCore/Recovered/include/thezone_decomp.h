@@ -69,8 +69,19 @@ int16_t tz_save_link1_index(const TzSaveHeaderPPC32 *h, size_t object_index);
 int16_t tz_save_link2_index(const TzSaveHeaderPPC32 *h, size_t object_index);
 
 int16_t tz_heading_to_frame48(float heading_degrees);
+
+typedef struct TzMuzzleOffset {
+    int16_t x;
+    int16_t y;
+} TzMuzzleOffset;
+
+TzMuzzleOffset tz_ship_muzzle_offset_frame48(int16_t frame);
+void tz_screen_direction_from_heading(float heading_degrees,
+                                      const float neg_sin_360[360],
+                                      const float cos_360[360],
+                                      float *screen_dx, float *screen_dy);
 float tz_wrap_heading(float heading_degrees);
-bool tz_apply_player_thrust(float *velocity_x, float *velocity_y,
+bool tz_apply_player_thrust(float *velocity_vertical, float *velocity_horizontal,
                             float heading_degrees, float maximum_speed,
                             const float neg_sin_360[360], const float cos_360[360]);
 

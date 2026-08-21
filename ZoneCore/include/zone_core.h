@@ -10,7 +10,7 @@ extern "C" {
 
 #define ZONE_LOGICAL_WIDTH 640
 #define ZONE_LOGICAL_HEIGHT 480
-#define ZONE_MAX_RENDER_ITEMS 64
+#define ZONE_MAX_RENDER_ITEMS 96
 #define ZONE_MAX_AUDIO_EVENTS 16
 
 typedef struct ZoneGame ZoneGame;
@@ -52,6 +52,8 @@ typedef struct ZoneHUDState {
     int32_t shields;
     int32_t wave;
     int32_t ammo;
+    int32_t bases;
+    int32_t enemies;
     uint8_t paused;
 } ZoneHUDState;
 
@@ -69,6 +71,9 @@ int32_t zone_game_drain_audio(ZoneGame *game, ZoneAudioEvent *events, int32_t ca
 float zone_game_player_x(const ZoneGame *game);
 float zone_game_player_y(const ZoneGame *game);
 float zone_game_player_heading(const ZoneGame *game);
+int32_t zone_game_world_object_count(const ZoneGame *game);
+int32_t zone_game_count_type(const ZoneGame *game, uint32_t fourcc);
+void zone_game_debug_set_heading(ZoneGame *game, float heading_degrees);
 
 #ifdef __cplusplus
 }

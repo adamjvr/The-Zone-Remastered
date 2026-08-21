@@ -7,10 +7,12 @@ struct ZoneContentView: View {
       Color.black.ignoresSafeArea()
       ZoneMetalView(host: host).ignoresSafeArea()
       VStack {
-        HStack(spacing: 22) {
+        HStack(spacing: 18) {
           Text("SCORE \(host.hud.score)")
           Text("SHIELDS \(host.hud.shields)%")
           Text("AMMO \(host.hud.ammo)")
+          Text("BASES \(host.hud.bases)")
+          Text("ENEMIES \(host.hud.enemies)")
           Spacer()
           Text("WAVE \(host.hud.wave)")
         }.font(.system(.headline, design: .monospaced)).foregroundStyle(.white).padding(14)
