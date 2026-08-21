@@ -1,0 +1,23 @@
+The Zone Remastered — Milestone 0.2 overlay
+
+Base: apply on top of the committed native-target/first-running-Mac milestone.
+
+New:
+  APPLY-MILESTONE-0.2.command
+  Docs/MILESTONE-0.2.md
+  Docs/images/TheZoneRemastered-Ship.png
+  macOS/Assets.xcassets/Contents.json
+  macOS/Assets.xcassets/AppIcon.appiconset/*
+  Tools/generate-macos-app-icon.command
+  Tools/patch-xcodeproj-milestone-0.2.py
+  Tools/verify-milestone-0.2.command
+
+Updated:
+  README.md
+  project.yml
+  ZoneCore/src/zone_core.c
+  ZoneCore/tests/test_zone_core.c
+  Tools/test-zonecore.sh
+
+The apply script patches TheZoneRemastered.xcodeproj/project.pbxproj in place
+idempotently to add the macOS AppIcon asset catalog. It does not alter signing.
