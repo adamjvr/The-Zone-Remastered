@@ -1,4 +1,12 @@
 #!/bin/zsh
 set -euo pipefail
 cd "${0:A:h}/.."
-xcodebuild -project TheZoneRemastered.xcodeproj -scheme "The Zone iPadOS" -configuration Debug -sdk iphonesimulator -derivedDataPath build/DerivedData CODE_SIGNING_ALLOWED=NO build
+./Tools/verify-native-targets.command
+xcodebuild \
+  -project TheZoneRemastered.xcodeproj \
+  -scheme "The Zone iPadOS" \
+  -configuration Debug \
+  -destination 'generic/platform=iOS Simulator' \
+  -derivedDataPath build/DerivedData \
+  CODE_SIGNING_ALLOWED=NO \
+  build

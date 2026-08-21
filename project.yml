@@ -4,16 +4,29 @@ options:
 targets:
   ZoneCore:
     type: library.static
-    platform: macOS
+    platform: auto
+    supportedDestinations: [macOS, iOS]
     sources: [ZoneCore/src, ZoneCore/Recovered/src]
     headers: [ZoneCore/include, ZoneCore/Recovered/include]
+    settings:
+      base:
+        SDKROOT: auto
+        SUPPORTED_PLATFORMS: "macosx iphoneos iphonesimulator"
+        SUPPORTS_MACCATALYST: NO
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
   The Zone macOS:
     type: application
     platform: macOS
-    deploymentTarget: "14.0"
+    deploymentTarget: "15.0"
     sources: [Shared, macOS]
     resources: [Resources/Sprites, Resources/Sounds]
     dependencies: [{target: ZoneCore}]
+    settings:
+      base:
+        SDKROOT: macosx
+        SUPPORTED_PLATFORMS: macosx
+        SUPPORTS_MACCATALYST: NO
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
   The Zone iPadOS:
     type: application
     platform: iOS
@@ -23,3 +36,11 @@ targets:
     sources: [Shared, iPadOS]
     resources: [Resources/Sprites, Resources/Sounds]
     dependencies: [{target: ZoneCore}]
+    settings:
+      base:
+        SDKROOT: iphoneos
+        SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
+        TARGETED_DEVICE_FAMILY: 2
+        SUPPORTS_MACCATALYST: NO
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+        SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: NO

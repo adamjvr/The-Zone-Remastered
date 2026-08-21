@@ -54,3 +54,27 @@ The iPad target declares the Game Controllers capability/profile support in `iPa
 
 ## Verification boundary
 This package was produced in a non-Apple build environment. Its C engine is compiled and regression-tested here, its Swift files are syntax-parsed, and the `.pbxproj` / plist files are linted. Final framework/Metal compilation, signing, and device/simulator execution must be performed by Xcode on macOS; `Tools/build-macos.command` and `Tools/build-ipados-simulator.command` are included for that first Apple-host verification.
+
+## Native target policy
+
+This project intentionally ships **two distinct native Apple application targets**:
+
+- **The Zone macOS** — built with the macOS SDK; AppKit/SwiftUI/Metal; keyboard is the canonical control path, with GameController support alongside it.
+- **The Zone iPadOS** — built with the iPadOS/iOS SDK for **iPad only**; UIKit/SwiftUI/Metal; GameController plus touch/keyboard input.
+
+The iPad target explicitly disables both **Mac Catalyst** and **Mac (Designed for iPad)**. It is not the Mac version of the game. The shared C `ZoneCore` is compiled for the active native SDK, so no macOS static-library binary is linked into the iPad build.
+
+Run `./Tools/verify-native-targets.command` on a Mac with Xcode to assert these build settings.
+
+Native build commands:
+
+```bash
+./Tools/build-macos.command
+./Tools/build-ipados-simulator.command
+./Tools/build-ipados-device.command
+```
+
+
+## 0.1.2 — Sequoia native-target verification fix
+
+The verifier now distinguishes the **installed Xcode SDK** from the **minimum deployment target**. An installed Xcode may report `SDKROOT = macosx26.x`; that still means the native macOS SDK. The macOS app itself is explicitly pinned to `MACOSX_DEPLOYMENT_TARGET = 15.0` (macOS Sequoia). The native iPadOS target remains separate and cannot run as a Designed-for-iPad Mac app or Catalyst app.

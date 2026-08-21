@@ -1,384 +1,716 @@
 // !$*UTF8*$!
 {
 	archiveVersion = 1;
-	classes = {};
+	classes = {
+	};
 	objectVersion = 56;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		F4B86DB5ABDC908B163E31AE /* zone_core.c in Sources */ = {isa = PBXBuildFile; fileRef = 15B9B195B66E3A380465A56C /* zone_core.c */; };
 		098EFD0EFB28C0AF8DF0150C /* zone_sprite_data.c in Sources */ = {isa = PBXBuildFile; fileRef = 1E583304E7F2902F11610BA8 /* zone_sprite_data.c */; };
-		358B79156AE1C108CA6F932A /* ai.c in Sources */ = {isa = PBXBuildFile; fileRef = 1EEF2D2995B9CD93A4A8DEE2 /* ai.c */; };
 		112AFEA16973CBD4C43929E8 /* angles.c in Sources */ = {isa = PBXBuildFile; fileRef = 811296E0158BECE85D23ABDA /* angles.c */; };
-		4F0B26D8F2656DD175D1C342 /* collision.c in Sources */ = {isa = PBXBuildFile; fileRef = 17A25B5E3F0A6734CC62D029 /* collision.c */; };
-		A77A9EBA665DE5D1B343449D /* damage.c in Sources */ = {isa = PBXBuildFile; fileRef = E4F30CB91A757AB011EAC91D /* damage.c */; };
-		47DCACBC6750D82B6FBE6D85 /* object_config.c in Sources */ = {isa = PBXBuildFile; fileRef = 68FFBDF1AAB60CDD7AEB8B9E /* object_config.c */; };
-		5E8F2B5593A83C74689CFC84 /* objects.c in Sources */ = {isa = PBXBuildFile; fileRef = 85BD6C8D00EE152372C196D7 /* objects.c */; };
-		F4B4EFEF92D7B148FB622109 /* player.c in Sources */ = {isa = PBXBuildFile; fileRef = 243AFBB3B5AF57969A5E284B /* player.c */; };
-		F04C7C79B2744C7A421E40D7 /* render.c in Sources */ = {isa = PBXBuildFile; fileRef = A40E72D0E1893B83D41AF18B /* render.c */; };
-		AAC2A751A28248BD6D7B3E84 /* savegame.c in Sources */ = {isa = PBXBuildFile; fileRef = 62D9043C74365735322056B6 /* savegame.c */; };
-		F317EE7474AFA7D752C8FFFA /* waves.c in Sources */ = {isa = PBXBuildFile; fileRef = FBFDECA6F19312DDBC0108E4 /* waves.c */; };
-		6CE371EC0DF143746E4FE1C4 /* ZoneInputRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B648ABBD992A677DCC025AC /* ZoneInputRouter.swift */; };
-		68F09A9BC48BB54BD1CEECF6 /* ZoneControllerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF434E5246B2388ADBDD81DD /* ZoneControllerManager.swift */; };
-		64119FB0C45D64E27D684E94 /* ZoneAudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B5303BE56E40BBE37EEFB3D /* ZoneAudioEngine.swift */; };
-		DC894827C243600A673CFD01 /* ZoneGameHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB208D12348192B0737C5EA8 /* ZoneGameHost.swift */; };
-		32C8690625F4A6F4720E1745 /* ZoneRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 154ECD6C37549A8FA0B1B6F1 /* ZoneRenderer.swift */; };
-		CA273BAAD54F70C3F27E79AB /* ZoneMetalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A6C467BE615BC45AA4EDE01 /* ZoneMetalView.swift */; };
-		E78F69FD64D83E6DD8B623E6 /* ZoneTouchControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 604C32C657DB88939D54902A /* ZoneTouchControls.swift */; };
-		DFC8B24333EDF270F348F93E /* ZoneContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA6FABE8DCBC7E2CF99E9F18 /* ZoneContentView.swift */; };
-		AB2FAEB428A3D19634365AE0 /* ZoneShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 42960A1AE76070AD42EFB1E1 /* ZoneShaders.metal */; };
-		E2F453E7BD6CEA68030CC5D3 /* TheZoneMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 918110C8D25F1E7885F46099 /* TheZoneMacApp.swift */; };
-		4E9FE0E84D8E5063644F3EBE /* ZoneInputRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B648ABBD992A677DCC025AC /* ZoneInputRouter.swift */; };
-		CDE2CF248FD96607C217E90F /* ZoneControllerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF434E5246B2388ADBDD81DD /* ZoneControllerManager.swift */; };
-		6D1CDDE71E7255171BCCCB34 /* ZoneAudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B5303BE56E40BBE37EEFB3D /* ZoneAudioEngine.swift */; };
-		D1AF6D013F1CE95274B51A58 /* ZoneGameHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB208D12348192B0737C5EA8 /* ZoneGameHost.swift */; };
-		B0229F1F578925813411814C /* ZoneRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 154ECD6C37549A8FA0B1B6F1 /* ZoneRenderer.swift */; };
-		33BF251B8E652F34ECD6E6C5 /* ZoneMetalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A6C467BE615BC45AA4EDE01 /* ZoneMetalView.swift */; };
-		FA25A05587A8CD597B12E6F1 /* ZoneTouchControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 604C32C657DB88939D54902A /* ZoneTouchControls.swift */; };
-		5C83EB61F4F0D5F172E619B6 /* ZoneContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA6FABE8DCBC7E2CF99E9F18 /* ZoneContentView.swift */; };
-		649DBF00F48729787B8901F9 /* ZoneShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 42960A1AE76070AD42EFB1E1 /* ZoneShaders.metal */; };
-		69E65FCEF7EF3B9C26296605 /* TheZonePadApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5D861F8C22532B24D3EF504 /* TheZonePadApp.swift */; };
-		A74D8553D5E1E54AFCFF7BA4 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 985607004DE97C1FB8ED0790 /* Metal.framework */; };
-		3B8144BD2141E5AA2F5B78A3 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 985607004DE97C1FB8ED0790 /* Metal.framework */; };
-		7F016C41670257C3ECE97F3D /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 80F8A47264FB74C1298C8CFF /* MetalKit.framework */; };
-		4B67CC58388D105C6CF6DCCD /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 80F8A47264FB74C1298C8CFF /* MetalKit.framework */; };
-		DB9AF6F35DA2907E756E2537 /* GameController.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 51A36FE66F09E48A2F3AE83A /* GameController.framework */; };
-		9DB9B8BAFC997D8CC08AFF39 /* GameController.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 51A36FE66F09E48A2F3AE83A /* GameController.framework */; };
-		2B569698256DDA888B48F616 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2A1E0603BEF613389E473EF8 /* AVFoundation.framework */; };
-		9753EDE13B1CD27313681C37 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2A1E0603BEF613389E473EF8 /* AVFoundation.framework */; };
-		ED405E0CBC722D1B0E735EFC /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 553261B5DA2A5974883BCD58 /* SwiftUI.framework */; };
-		7DD92AF1C98B1154B108801E /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 553261B5DA2A5974883BCD58 /* SwiftUI.framework */; };
-		8F6D66D4D3063EC255390571 /* Sprites in Resources */ = {isa = PBXBuildFile; fileRef = 1DD231E67C20F6E8CBAD32B9 /* Sprites */; };
-		A5F1DA8098428207D6D949CE /* Sounds in Resources */ = {isa = PBXBuildFile; fileRef = 741428F13A0B768ED5AE94D8 /* Sounds */; };
-		243DF28945645BDCE7745A9A /* Sprites in Resources */ = {isa = PBXBuildFile; fileRef = 1DD231E67C20F6E8CBAD32B9 /* Sprites */; };
 		221D7F6153E89DB0A888F80C /* Sounds in Resources */ = {isa = PBXBuildFile; fileRef = 741428F13A0B768ED5AE94D8 /* Sounds */; };
+		243DF28945645BDCE7745A9A /* Sprites in Resources */ = {isa = PBXBuildFile; fileRef = 1DD231E67C20F6E8CBAD32B9 /* Sprites */; };
+		2B569698256DDA888B48F616 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2A1E0603BEF613389E473EF8 /* AVFoundation.framework */; };
+		32C8690625F4A6F4720E1745 /* ZoneRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 154ECD6C37549A8FA0B1B6F1 /* ZoneRenderer.swift */; };
+		33BF251B8E652F34ECD6E6C5 /* ZoneMetalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A6C467BE615BC45AA4EDE01 /* ZoneMetalView.swift */; };
+		358B79156AE1C108CA6F932A /* ai.c in Sources */ = {isa = PBXBuildFile; fileRef = 1EEF2D2995B9CD93A4A8DEE2 /* ai.c */; };
+		3B8144BD2141E5AA2F5B78A3 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 985607004DE97C1FB8ED0790 /* Metal.framework */; };
+		47DCACBC6750D82B6FBE6D85 /* object_config.c in Sources */ = {isa = PBXBuildFile; fileRef = 68FFBDF1AAB60CDD7AEB8B9E /* object_config.c */; };
+		4B67CC58388D105C6CF6DCCD /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 80F8A47264FB74C1298C8CFF /* MetalKit.framework */; };
+		4E9FE0E84D8E5063644F3EBE /* ZoneInputRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B648ABBD992A677DCC025AC /* ZoneInputRouter.swift */; };
+		4F0B26D8F2656DD175D1C342 /* collision.c in Sources */ = {isa = PBXBuildFile; fileRef = 17A25B5E3F0A6734CC62D029 /* collision.c */; };
+		5C83EB61F4F0D5F172E619B6 /* ZoneContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA6FABE8DCBC7E2CF99E9F18 /* ZoneContentView.swift */; };
+		5E8F2B5593A83C74689CFC84 /* objects.c in Sources */ = {isa = PBXBuildFile; fileRef = 85BD6C8D00EE152372C196D7 /* objects.c */; };
+		64119FB0C45D64E27D684E94 /* ZoneAudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B5303BE56E40BBE37EEFB3D /* ZoneAudioEngine.swift */; };
+		649DBF00F48729787B8901F9 /* ZoneShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 42960A1AE76070AD42EFB1E1 /* ZoneShaders.metal */; };
+		68F09A9BC48BB54BD1CEECF6 /* ZoneControllerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF434E5246B2388ADBDD81DD /* ZoneControllerManager.swift */; };
+		69E65FCEF7EF3B9C26296605 /* TheZonePadApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5D861F8C22532B24D3EF504 /* TheZonePadApp.swift */; };
+		6CE371EC0DF143746E4FE1C4 /* ZoneInputRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B648ABBD992A677DCC025AC /* ZoneInputRouter.swift */; };
+		6D1CDDE71E7255171BCCCB34 /* ZoneAudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B5303BE56E40BBE37EEFB3D /* ZoneAudioEngine.swift */; };
+		7DD92AF1C98B1154B108801E /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 553261B5DA2A5974883BCD58 /* SwiftUI.framework */; };
+		7F016C41670257C3ECE97F3D /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 80F8A47264FB74C1298C8CFF /* MetalKit.framework */; };
 		8C0555EB5614DFBF97CFD65E /* libZoneCore.a in Frameworks */ = {isa = PBXBuildFile; fileRef = CBF344E5098514139944972B /* libZoneCore.a */; };
+		8F6D66D4D3063EC255390571 /* Sprites in Resources */ = {isa = PBXBuildFile; fileRef = 1DD231E67C20F6E8CBAD32B9 /* Sprites */; };
+		9753EDE13B1CD27313681C37 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2A1E0603BEF613389E473EF8 /* AVFoundation.framework */; };
+		9DB9B8BAFC997D8CC08AFF39 /* GameController.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 51A36FE66F09E48A2F3AE83A /* GameController.framework */; };
+		A5F1DA8098428207D6D949CE /* Sounds in Resources */ = {isa = PBXBuildFile; fileRef = 741428F13A0B768ED5AE94D8 /* Sounds */; };
+		A74D8553D5E1E54AFCFF7BA4 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 985607004DE97C1FB8ED0790 /* Metal.framework */; };
+		A77A9EBA665DE5D1B343449D /* damage.c in Sources */ = {isa = PBXBuildFile; fileRef = E4F30CB91A757AB011EAC91D /* damage.c */; };
+		AAC2A751A28248BD6D7B3E84 /* savegame.c in Sources */ = {isa = PBXBuildFile; fileRef = 62D9043C74365735322056B6 /* savegame.c */; };
+		AB2FAEB428A3D19634365AE0 /* ZoneShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 42960A1AE76070AD42EFB1E1 /* ZoneShaders.metal */; };
+		B0229F1F578925813411814C /* ZoneRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 154ECD6C37549A8FA0B1B6F1 /* ZoneRenderer.swift */; };
+		CA273BAAD54F70C3F27E79AB /* ZoneMetalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A6C467BE615BC45AA4EDE01 /* ZoneMetalView.swift */; };
+		CDE2CF248FD96607C217E90F /* ZoneControllerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF434E5246B2388ADBDD81DD /* ZoneControllerManager.swift */; };
+		D1AF6D013F1CE95274B51A58 /* ZoneGameHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB208D12348192B0737C5EA8 /* ZoneGameHost.swift */; };
+		DB9AF6F35DA2907E756E2537 /* GameController.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 51A36FE66F09E48A2F3AE83A /* GameController.framework */; };
+		DC894827C243600A673CFD01 /* ZoneGameHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB208D12348192B0737C5EA8 /* ZoneGameHost.swift */; };
+		DFC8B24333EDF270F348F93E /* ZoneContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA6FABE8DCBC7E2CF99E9F18 /* ZoneContentView.swift */; };
+		E2F453E7BD6CEA68030CC5D3 /* TheZoneMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 918110C8D25F1E7885F46099 /* TheZoneMacApp.swift */; };
+		E78F69FD64D83E6DD8B623E6 /* ZoneTouchControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 604C32C657DB88939D54902A /* ZoneTouchControls.swift */; };
+		ED405E0CBC722D1B0E735EFC /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 553261B5DA2A5974883BCD58 /* SwiftUI.framework */; };
+		F04C7C79B2744C7A421E40D7 /* render.c in Sources */ = {isa = PBXBuildFile; fileRef = A40E72D0E1893B83D41AF18B /* render.c */; };
 		F2E0A4D192CE6BBB0DFF1117 /* libZoneCore.a in Frameworks */ = {isa = PBXBuildFile; fileRef = CBF344E5098514139944972B /* libZoneCore.a */; };
+		F317EE7474AFA7D752C8FFFA /* waves.c in Sources */ = {isa = PBXBuildFile; fileRef = FBFDECA6F19312DDBC0108E4 /* waves.c */; };
+		F4B4EFEF92D7B148FB622109 /* player.c in Sources */ = {isa = PBXBuildFile; fileRef = 243AFBB3B5AF57969A5E284B /* player.c */; };
+		F4B86DB5ABDC908B163E31AE /* zone_core.c in Sources */ = {isa = PBXBuildFile; fileRef = 15B9B195B66E3A380465A56C /* zone_core.c */; };
+		FA25A05587A8CD597B12E6F1 /* ZoneTouchControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 604C32C657DB88939D54902A /* ZoneTouchControls.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		A222B3F32B99734E15BBD64E = {isa = PBXContainerItemProxy; containerPortal = 98F54143AB4E86B28C3AFEE0 /* Project object */; proxyType = 1; remoteGlobalIDString = 62C6ECBE30A1BC1B0B8D3542; remoteInfo = ZoneCore; };
-		5325676F77186D3F2138466A = {isa = PBXContainerItemProxy; containerPortal = 98F54143AB4E86B28C3AFEE0 /* Project object */; proxyType = 1; remoteGlobalIDString = 62C6ECBE30A1BC1B0B8D3542; remoteInfo = ZoneCore; };
+		5325676F77186D3F2138466A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 98F54143AB4E86B28C3AFEE0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 62C6ECBE30A1BC1B0B8D3542;
+			remoteInfo = ZoneCore;
+		};
+		A222B3F32B99734E15BBD64E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 98F54143AB4E86B28C3AFEE0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 62C6ECBE30A1BC1B0B8D3542;
+			remoteInfo = ZoneCore;
+		};
 /* End PBXContainerItemProxy section */
 
-/* Begin PBXTargetDependency section */
-		05B6A557AAFA5DD7D4F973CD = {isa = PBXTargetDependency; target = 62C6ECBE30A1BC1B0B8D3542 /* ZoneCore */; targetProxy = A222B3F32B99734E15BBD64E; };
-		84BA7EFD727867F51F6F157D = {isa = PBXTargetDependency; target = 62C6ECBE30A1BC1B0B8D3542 /* ZoneCore */; targetProxy = 5325676F77186D3F2138466A; };
-/* End PBXTargetDependency section */
-
 /* Begin PBXFileReference section */
-		15B9B195B66E3A380465A56C /* zone_core.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "zone_core.c"; sourceTree = "<group>"; };
-		1E583304E7F2902F11610BA8 /* zone_sprite_data.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "zone_sprite_data.c"; sourceTree = "<group>"; };
-		1EEF2D2995B9CD93A4A8DEE2 /* ai.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "ai.c"; sourceTree = "<group>"; };
-		811296E0158BECE85D23ABDA /* angles.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "angles.c"; sourceTree = "<group>"; };
-		17A25B5E3F0A6734CC62D029 /* collision.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "collision.c"; sourceTree = "<group>"; };
-		E4F30CB91A757AB011EAC91D /* damage.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "damage.c"; sourceTree = "<group>"; };
-		68FFBDF1AAB60CDD7AEB8B9E /* object_config.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "object_config.c"; sourceTree = "<group>"; };
-		85BD6C8D00EE152372C196D7 /* objects.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "objects.c"; sourceTree = "<group>"; };
-		243AFBB3B5AF57969A5E284B /* player.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "player.c"; sourceTree = "<group>"; };
-		A40E72D0E1893B83D41AF18B /* render.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "render.c"; sourceTree = "<group>"; };
-		62D9043C74365735322056B6 /* savegame.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "savegame.c"; sourceTree = "<group>"; };
-		FBFDECA6F19312DDBC0108E4 /* waves.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "waves.c"; sourceTree = "<group>"; };
-		2D4915A3CB6E9784C874BAB6 /* zone_core.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "zone_core.h"; sourceTree = "<group>"; };
-		F390205D95A8FAF3FCCC5406 /* zone_sprite_data.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "zone_sprite_data.h"; sourceTree = "<group>"; };
-		DE196F5C634AE8AD609AEEE6 /* thezone_decomp.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "thezone_decomp.h"; sourceTree = "<group>"; };
-		16F42FA5B6D3FCFB154DFBCF /* thezone_types.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "thezone_types.h"; sourceTree = "<group>"; };
-		6B648ABBD992A677DCC025AC /* ZoneInputRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ZoneInputRouter.swift"; sourceTree = "<group>"; };
-		CF434E5246B2388ADBDD81DD /* ZoneControllerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ZoneControllerManager.swift"; sourceTree = "<group>"; };
-		3B5303BE56E40BBE37EEFB3D /* ZoneAudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ZoneAudioEngine.swift"; sourceTree = "<group>"; };
-		DB208D12348192B0737C5EA8 /* ZoneGameHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ZoneGameHost.swift"; sourceTree = "<group>"; };
-		154ECD6C37549A8FA0B1B6F1 /* ZoneRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ZoneRenderer.swift"; sourceTree = "<group>"; };
-		5A6C467BE615BC45AA4EDE01 /* ZoneMetalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ZoneMetalView.swift"; sourceTree = "<group>"; };
-		604C32C657DB88939D54902A /* ZoneTouchControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ZoneTouchControls.swift"; sourceTree = "<group>"; };
-		CA6FABE8DCBC7E2CF99E9F18 /* ZoneContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ZoneContentView.swift"; sourceTree = "<group>"; };
-		42960A1AE76070AD42EFB1E1 /* ZoneShaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = "ZoneShaders.metal"; sourceTree = "<group>"; };
-		918110C8D25F1E7885F46099 /* TheZoneMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TheZoneMacApp.swift"; sourceTree = "<group>"; };
-		C5D861F8C22532B24D3EF504 /* TheZonePadApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TheZonePadApp.swift"; sourceTree = "<group>"; };
-		940F853B33022FCC518321F6 /* ZoneCore-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "ZoneCore-Bridging-Header.h"; sourceTree = "<group>"; };
-		985607004DE97C1FB8ED0790 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = "Metal.framework"; path = "System/Library/Frameworks/Metal.framework"; sourceTree = SDKROOT; };
-		80F8A47264FB74C1298C8CFF /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = "MetalKit.framework"; path = "System/Library/Frameworks/MetalKit.framework"; sourceTree = SDKROOT; };
-		51A36FE66F09E48A2F3AE83A /* GameController.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = "GameController.framework"; path = "System/Library/Frameworks/GameController.framework"; sourceTree = SDKROOT; };
-		2A1E0603BEF613389E473EF8 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = "AVFoundation.framework"; path = "System/Library/Frameworks/AVFoundation.framework"; sourceTree = SDKROOT; };
-		553261B5DA2A5974883BCD58 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = "SwiftUI.framework"; path = "System/Library/Frameworks/SwiftUI.framework"; sourceTree = SDKROOT; };
+		154ECD6C37549A8FA0B1B6F1 /* ZoneRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoneRenderer.swift; sourceTree = "<group>"; };
+		15B9B195B66E3A380465A56C /* zone_core.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = zone_core.c; sourceTree = "<group>"; };
+		16F42FA5B6D3FCFB154DFBCF /* thezone_types.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = thezone_types.h; sourceTree = "<group>"; };
+		17A25B5E3F0A6734CC62D029 /* collision.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = collision.c; sourceTree = "<group>"; };
 		1DD231E67C20F6E8CBAD32B9 /* Sprites */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Sprites; sourceTree = "<group>"; };
-		741428F13A0B768ED5AE94D8 /* Sounds */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Sounds; sourceTree = "<group>"; };
-		CBF344E5098514139944972B /* libZoneCore.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libZoneCore.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		1E583304E7F2902F11610BA8 /* zone_sprite_data.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = zone_sprite_data.c; sourceTree = "<group>"; };
+		1EEF2D2995B9CD93A4A8DEE2 /* ai.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ai.c; sourceTree = "<group>"; };
+		243AFBB3B5AF57969A5E284B /* player.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = player.c; sourceTree = "<group>"; };
+		2A1E0603BEF613389E473EF8 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
+		2D4915A3CB6E9784C874BAB6 /* zone_core.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = zone_core.h; sourceTree = "<group>"; };
 		3B0BB3AAC6141AA5CDB947A5 /* The Zone Remastered.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "The Zone Remastered.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		9EF94E3726B777CAC858063F /* The Zone Remastered iPad.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "The Zone Remastered iPad.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		3B5303BE56E40BBE37EEFB3D /* ZoneAudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoneAudioEngine.swift; sourceTree = "<group>"; };
+		42960A1AE76070AD42EFB1E1 /* ZoneShaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = ZoneShaders.metal; sourceTree = "<group>"; };
+		51A36FE66F09E48A2F3AE83A /* GameController.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GameController.framework; path = System/Library/Frameworks/GameController.framework; sourceTree = SDKROOT; };
+		553261B5DA2A5974883BCD58 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		5A6C467BE615BC45AA4EDE01 /* ZoneMetalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoneMetalView.swift; sourceTree = "<group>"; };
+		604C32C657DB88939D54902A /* ZoneTouchControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoneTouchControls.swift; sourceTree = "<group>"; };
+		62D9043C74365735322056B6 /* savegame.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = savegame.c; sourceTree = "<group>"; };
+		68FFBDF1AAB60CDD7AEB8B9E /* object_config.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = object_config.c; sourceTree = "<group>"; };
+		6B648ABBD992A677DCC025AC /* ZoneInputRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoneInputRouter.swift; sourceTree = "<group>"; };
+		741428F13A0B768ED5AE94D8 /* Sounds */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Sounds; sourceTree = "<group>"; };
+		80F8A47264FB74C1298C8CFF /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
+		811296E0158BECE85D23ABDA /* angles.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = angles.c; sourceTree = "<group>"; };
+		85BD6C8D00EE152372C196D7 /* objects.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = objects.c; sourceTree = "<group>"; };
+		918110C8D25F1E7885F46099 /* TheZoneMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheZoneMacApp.swift; sourceTree = "<group>"; };
+		940F853B33022FCC518321F6 /* ZoneCore-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "ZoneCore-Bridging-Header.h"; sourceTree = "<group>"; };
+		985607004DE97C1FB8ED0790 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		9EF94E3726B777CAC858063F /* The Zone Remastered.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "The Zone Remastered.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A40E72D0E1893B83D41AF18B /* render.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = render.c; sourceTree = "<group>"; };
+		C5D861F8C22532B24D3EF504 /* TheZonePadApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheZonePadApp.swift; sourceTree = "<group>"; };
+		CA6FABE8DCBC7E2CF99E9F18 /* ZoneContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoneContentView.swift; sourceTree = "<group>"; };
+		CBF344E5098514139944972B /* libZoneCore.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libZoneCore.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		CF434E5246B2388ADBDD81DD /* ZoneControllerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoneControllerManager.swift; sourceTree = "<group>"; };
+		DB208D12348192B0737C5EA8 /* ZoneGameHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoneGameHost.swift; sourceTree = "<group>"; };
+		DE196F5C634AE8AD609AEEE6 /* thezone_decomp.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = thezone_decomp.h; sourceTree = "<group>"; };
+		E4F30CB91A757AB011EAC91D /* damage.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = damage.c; sourceTree = "<group>"; };
+		F390205D95A8FAF3FCCC5406 /* zone_sprite_data.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = zone_sprite_data.h; sourceTree = "<group>"; };
+		FBFDECA6F19312DDBC0108E4 /* waves.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = waves.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		F0D294F552F0A7C3408CFC4B = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (
-			A74D8553D5E1E54AFCFF7BA4 /* Metal.framework in Frameworks */,
-			7F016C41670257C3ECE97F3D /* MetalKit.framework in Frameworks */,
-			DB9AF6F35DA2907E756E2537 /* GameController.framework in Frameworks */,
-			2B569698256DDA888B48F616 /* AVFoundation.framework in Frameworks */,
-			ED405E0CBC722D1B0E735EFC /* SwiftUI.framework in Frameworks */,
-			8C0555EB5614DFBF97CFD65E /* libZoneCore.a in Frameworks */,
-		); runOnlyForDeploymentPostprocessing = 0; };
-		BC2F92538AFAB9D9AC4FF5DA = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (
-			3B8144BD2141E5AA2F5B78A3 /* Metal.framework in Frameworks */,
-			4B67CC58388D105C6CF6DCCD /* MetalKit.framework in Frameworks */,
-			9DB9B8BAFC997D8CC08AFF39 /* GameController.framework in Frameworks */,
-			9753EDE13B1CD27313681C37 /* AVFoundation.framework in Frameworks */,
-			7DD92AF1C98B1154B108801E /* SwiftUI.framework in Frameworks */,
-			F2E0A4D192CE6BBB0DFF1117 /* libZoneCore.a in Frameworks */,
-		); runOnlyForDeploymentPostprocessing = 0; };
+		BC2F92538AFAB9D9AC4FF5DA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3B8144BD2141E5AA2F5B78A3 /* Metal.framework in Frameworks */,
+				4B67CC58388D105C6CF6DCCD /* MetalKit.framework in Frameworks */,
+				9DB9B8BAFC997D8CC08AFF39 /* GameController.framework in Frameworks */,
+				9753EDE13B1CD27313681C37 /* AVFoundation.framework in Frameworks */,
+				7DD92AF1C98B1154B108801E /* SwiftUI.framework in Frameworks */,
+				F2E0A4D192CE6BBB0DFF1117 /* libZoneCore.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F0D294F552F0A7C3408CFC4B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A74D8553D5E1E54AFCFF7BA4 /* Metal.framework in Frameworks */,
+				7F016C41670257C3ECE97F3D /* MetalKit.framework in Frameworks */,
+				DB9AF6F35DA2907E756E2537 /* GameController.framework in Frameworks */,
+				2B569698256DDA888B48F616 /* AVFoundation.framework in Frameworks */,
+				ED405E0CBC722D1B0E735EFC /* SwiftUI.framework in Frameworks */,
+				8C0555EB5614DFBF97CFD65E /* libZoneCore.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		ADCF10F76EBF2A74473E9DC4 /* TheZoneRemastered */ = {isa = PBXGroup; children = (
-			9A133E1371DADAC9FD9F011B /* ZoneCore */,
-			44C7E229889FE9D1BB841A79 /* Shared */,
-			8A63BD5E5F2CC61101852099 /* macOS */,
-			2278FD4230529FC0D3D509F5 /* iPadOS */,
-			A024F06580C79B7582C3806A /* Resources */,
-			ED2F3B048716C9DC7573911C /* Frameworks */,
-			00C45FD35CB0F9C5F764F070 /* Products */,
-		); name = "TheZoneRemastered"; sourceTree = "<group>"; };
-		9A133E1371DADAC9FD9F011B /* ZoneCore */ = {isa = PBXGroup; children = (
-			322C750D7CBC60F43B7C6145 /* include */,
-			5BA060A36312243D78F8CACC /* src */,
-			667E2FFC670BE46912F6083D /* Recovered */,
-		); path = "ZoneCore"; sourceTree = "<group>"; };
-		322C750D7CBC60F43B7C6145 /* include */ = {isa = PBXGroup; children = (
-			2D4915A3CB6E9784C874BAB6 /* zone_core.h */,
-		); path = "include"; sourceTree = "<group>"; };
-		5BA060A36312243D78F8CACC /* src */ = {isa = PBXGroup; children = (
-			15B9B195B66E3A380465A56C /* zone_core.c */,
-			1E583304E7F2902F11610BA8 /* zone_sprite_data.c */,
-			F390205D95A8FAF3FCCC5406 /* zone_sprite_data.h */,
-		); path = "src"; sourceTree = "<group>"; };
-		667E2FFC670BE46912F6083D /* Recovered */ = {isa = PBXGroup; children = (
-			868A86FB46A9452A65F967A7 /* include */,
-			5C962EDA5C36135FBD23B5E9 /* src */,
-		); path = "Recovered"; sourceTree = "<group>"; };
-		868A86FB46A9452A65F967A7 /* include */ = {isa = PBXGroup; children = (
-			DE196F5C634AE8AD609AEEE6 /* thezone_decomp.h */,
-			16F42FA5B6D3FCFB154DFBCF /* thezone_types.h */,
-		); path = "include"; sourceTree = "<group>"; };
-		5C962EDA5C36135FBD23B5E9 /* src */ = {isa = PBXGroup; children = (
-			1EEF2D2995B9CD93A4A8DEE2 /* ai.c */,
-			811296E0158BECE85D23ABDA /* angles.c */,
-			17A25B5E3F0A6734CC62D029 /* collision.c */,
-			E4F30CB91A757AB011EAC91D /* damage.c */,
-			68FFBDF1AAB60CDD7AEB8B9E /* object_config.c */,
-			85BD6C8D00EE152372C196D7 /* objects.c */,
-			243AFBB3B5AF57969A5E284B /* player.c */,
-			A40E72D0E1893B83D41AF18B /* render.c */,
-			62D9043C74365735322056B6 /* savegame.c */,
-			FBFDECA6F19312DDBC0108E4 /* waves.c */,
-		); path = "src"; sourceTree = "<group>"; };
-		44C7E229889FE9D1BB841A79 /* Shared */ = {isa = PBXGroup; children = (
-			6B648ABBD992A677DCC025AC /* ZoneInputRouter.swift */,
-			CF434E5246B2388ADBDD81DD /* ZoneControllerManager.swift */,
-			3B5303BE56E40BBE37EEFB3D /* ZoneAudioEngine.swift */,
-			DB208D12348192B0737C5EA8 /* ZoneGameHost.swift */,
-			154ECD6C37549A8FA0B1B6F1 /* ZoneRenderer.swift */,
-			5A6C467BE615BC45AA4EDE01 /* ZoneMetalView.swift */,
-			604C32C657DB88939D54902A /* ZoneTouchControls.swift */,
-			CA6FABE8DCBC7E2CF99E9F18 /* ZoneContentView.swift */,
-			42960A1AE76070AD42EFB1E1 /* ZoneShaders.metal */,
-			940F853B33022FCC518321F6 /* ZoneCore-Bridging-Header.h */,
-		); path = "Shared"; sourceTree = "<group>"; };
-		8A63BD5E5F2CC61101852099 /* macOS */ = {isa = PBXGroup; children = (
-			918110C8D25F1E7885F46099 /* TheZoneMacApp.swift */,
-		); path = "macOS"; sourceTree = "<group>"; };
-		2278FD4230529FC0D3D509F5 /* iPadOS */ = {isa = PBXGroup; children = (
-			C5D861F8C22532B24D3EF504 /* TheZonePadApp.swift */,
-		); path = "iPadOS"; sourceTree = "<group>"; };
-		A024F06580C79B7582C3806A /* Resources */ = {isa = PBXGroup; children = (
-			1DD231E67C20F6E8CBAD32B9 /* Sprites */,
-			741428F13A0B768ED5AE94D8 /* Sounds */,
-		); path = "Resources"; sourceTree = "<group>"; };
-		ED2F3B048716C9DC7573911C /* Frameworks */ = {isa = PBXGroup; children = (
-			985607004DE97C1FB8ED0790 /* Metal.framework */,
-			80F8A47264FB74C1298C8CFF /* MetalKit.framework */,
-			51A36FE66F09E48A2F3AE83A /* GameController.framework */,
-			2A1E0603BEF613389E473EF8 /* AVFoundation.framework */,
-			553261B5DA2A5974883BCD58 /* SwiftUI.framework */,
-		); name = "Frameworks"; sourceTree = "<group>"; };
-		00C45FD35CB0F9C5F764F070 /* Products */ = {isa = PBXGroup; children = (
-			CBF344E5098514139944972B /* libZoneCore.a */,
-			3B0BB3AAC6141AA5CDB947A5 /* The Zone Remastered.app */,
-			9EF94E3726B777CAC858063F /* The Zone Remastered iPad.app */,
-		); name = "Products"; sourceTree = "<group>"; };
+		00C45FD35CB0F9C5F764F070 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				CBF344E5098514139944972B /* libZoneCore.a */,
+				3B0BB3AAC6141AA5CDB947A5 /* The Zone Remastered.app */,
+				9EF94E3726B777CAC858063F /* The Zone Remastered.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		2278FD4230529FC0D3D509F5 /* iPadOS */ = {
+			isa = PBXGroup;
+			children = (
+				C5D861F8C22532B24D3EF504 /* TheZonePadApp.swift */,
+			);
+			path = iPadOS;
+			sourceTree = "<group>";
+		};
+		322C750D7CBC60F43B7C6145 /* include */ = {
+			isa = PBXGroup;
+			children = (
+				2D4915A3CB6E9784C874BAB6 /* zone_core.h */,
+			);
+			path = include;
+			sourceTree = "<group>";
+		};
+		44C7E229889FE9D1BB841A79 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				6B648ABBD992A677DCC025AC /* ZoneInputRouter.swift */,
+				CF434E5246B2388ADBDD81DD /* ZoneControllerManager.swift */,
+				3B5303BE56E40BBE37EEFB3D /* ZoneAudioEngine.swift */,
+				DB208D12348192B0737C5EA8 /* ZoneGameHost.swift */,
+				154ECD6C37549A8FA0B1B6F1 /* ZoneRenderer.swift */,
+				5A6C467BE615BC45AA4EDE01 /* ZoneMetalView.swift */,
+				604C32C657DB88939D54902A /* ZoneTouchControls.swift */,
+				CA6FABE8DCBC7E2CF99E9F18 /* ZoneContentView.swift */,
+				42960A1AE76070AD42EFB1E1 /* ZoneShaders.metal */,
+				940F853B33022FCC518321F6 /* ZoneCore-Bridging-Header.h */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		5BA060A36312243D78F8CACC /* src */ = {
+			isa = PBXGroup;
+			children = (
+				15B9B195B66E3A380465A56C /* zone_core.c */,
+				1E583304E7F2902F11610BA8 /* zone_sprite_data.c */,
+				F390205D95A8FAF3FCCC5406 /* zone_sprite_data.h */,
+			);
+			path = src;
+			sourceTree = "<group>";
+		};
+		5C962EDA5C36135FBD23B5E9 /* src */ = {
+			isa = PBXGroup;
+			children = (
+				1EEF2D2995B9CD93A4A8DEE2 /* ai.c */,
+				811296E0158BECE85D23ABDA /* angles.c */,
+				17A25B5E3F0A6734CC62D029 /* collision.c */,
+				E4F30CB91A757AB011EAC91D /* damage.c */,
+				68FFBDF1AAB60CDD7AEB8B9E /* object_config.c */,
+				85BD6C8D00EE152372C196D7 /* objects.c */,
+				243AFBB3B5AF57969A5E284B /* player.c */,
+				A40E72D0E1893B83D41AF18B /* render.c */,
+				62D9043C74365735322056B6 /* savegame.c */,
+				FBFDECA6F19312DDBC0108E4 /* waves.c */,
+			);
+			path = src;
+			sourceTree = "<group>";
+		};
+		667E2FFC670BE46912F6083D /* Recovered */ = {
+			isa = PBXGroup;
+			children = (
+				868A86FB46A9452A65F967A7 /* include */,
+				5C962EDA5C36135FBD23B5E9 /* src */,
+			);
+			path = Recovered;
+			sourceTree = "<group>";
+		};
+		868A86FB46A9452A65F967A7 /* include */ = {
+			isa = PBXGroup;
+			children = (
+				DE196F5C634AE8AD609AEEE6 /* thezone_decomp.h */,
+				16F42FA5B6D3FCFB154DFBCF /* thezone_types.h */,
+			);
+			path = include;
+			sourceTree = "<group>";
+		};
+		8A63BD5E5F2CC61101852099 /* macOS */ = {
+			isa = PBXGroup;
+			children = (
+				918110C8D25F1E7885F46099 /* TheZoneMacApp.swift */,
+			);
+			path = macOS;
+			sourceTree = "<group>";
+		};
+		9A133E1371DADAC9FD9F011B /* ZoneCore */ = {
+			isa = PBXGroup;
+			children = (
+				322C750D7CBC60F43B7C6145 /* include */,
+				5BA060A36312243D78F8CACC /* src */,
+				667E2FFC670BE46912F6083D /* Recovered */,
+			);
+			path = ZoneCore;
+			sourceTree = "<group>";
+		};
+		A024F06580C79B7582C3806A /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				1DD231E67C20F6E8CBAD32B9 /* Sprites */,
+				741428F13A0B768ED5AE94D8 /* Sounds */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		ADCF10F76EBF2A74473E9DC4 /* TheZoneRemastered */ = {
+			isa = PBXGroup;
+			children = (
+				9A133E1371DADAC9FD9F011B /* ZoneCore */,
+				44C7E229889FE9D1BB841A79 /* Shared */,
+				8A63BD5E5F2CC61101852099 /* macOS */,
+				2278FD4230529FC0D3D509F5 /* iPadOS */,
+				A024F06580C79B7582C3806A /* Resources */,
+				ED2F3B048716C9DC7573911C /* Frameworks */,
+				00C45FD35CB0F9C5F764F070 /* Products */,
+			);
+			name = TheZoneRemastered;
+			sourceTree = "<group>";
+		};
+		ED2F3B048716C9DC7573911C /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				985607004DE97C1FB8ED0790 /* Metal.framework */,
+				80F8A47264FB74C1298C8CFF /* MetalKit.framework */,
+				51A36FE66F09E48A2F3AE83A /* GameController.framework */,
+				2A1E0603BEF613389E473EF8 /* AVFoundation.framework */,
+				553261B5DA2A5974883BCD58 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		62C6ECBE30A1BC1B0B8D3542 /* ZoneCore */ = {isa = PBXNativeTarget; buildConfigurationList = D516BD8BA11EB4A2511D125D; buildPhases = (3C45CFE52689CAC22B638C53,); buildRules = (); dependencies = (); name = ZoneCore; productName = ZoneCore; productReference = CBF344E5098514139944972B; productType = "com.apple.product-type.library.static"; };
-		23E6EB9256AB02C8FDCB22A5 /* The Zone macOS */ = {isa = PBXNativeTarget; buildConfigurationList = 549B593D4A85389D10F0F372; buildPhases = (94D24F03B1ACE1E41A36C07B,F0D294F552F0A7C3408CFC4B,52BE7FC78026C9F1218132B7); buildRules = (); dependencies = (05B6A557AAFA5DD7D4F973CD,); name = "The Zone macOS"; productName = "The Zone Remastered"; productReference = 3B0BB3AAC6141AA5CDB947A5; productType = "com.apple.product-type.application"; };
-		1DA0D9971B8F68FA16F2D90F /* The Zone iPadOS */ = {isa = PBXNativeTarget; buildConfigurationList = B038A6AB16A125AF3A34D06C; buildPhases = (590D0DA738F961B533817AD0,BC2F92538AFAB9D9AC4FF5DA,ED26E5C002C90F61863E0E2E); buildRules = (); dependencies = (84BA7EFD727867F51F6F157D,); name = "The Zone iPadOS"; productName = "The Zone Remastered iPad"; productReference = 9EF94E3726B777CAC858063F; productType = "com.apple.product-type.application"; };
+		1DA0D9971B8F68FA16F2D90F /* The Zone iPadOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B038A6AB16A125AF3A34D06C /* Build configuration list for PBXNativeTarget "The Zone iPadOS" */;
+			buildPhases = (
+				590D0DA738F961B533817AD0 /* Sources */,
+				BC2F92538AFAB9D9AC4FF5DA /* Frameworks */,
+				ED26E5C002C90F61863E0E2E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				84BA7EFD727867F51F6F157D /* PBXTargetDependency */,
+			);
+			name = "The Zone iPadOS";
+			productName = "The Zone Remastered iPad";
+			productReference = 9EF94E3726B777CAC858063F /* The Zone Remastered.app */;
+			productType = "com.apple.product-type.application";
+		};
+		23E6EB9256AB02C8FDCB22A5 /* The Zone macOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 549B593D4A85389D10F0F372 /* Build configuration list for PBXNativeTarget "The Zone macOS" */;
+			buildPhases = (
+				94D24F03B1ACE1E41A36C07B /* Sources */,
+				F0D294F552F0A7C3408CFC4B /* Frameworks */,
+				52BE7FC78026C9F1218132B7 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				05B6A557AAFA5DD7D4F973CD /* PBXTargetDependency */,
+			);
+			name = "The Zone macOS";
+			productName = "The Zone Remastered";
+			productReference = 3B0BB3AAC6141AA5CDB947A5 /* The Zone Remastered.app */;
+			productType = "com.apple.product-type.application";
+		};
+		62C6ECBE30A1BC1B0B8D3542 /* ZoneCore */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D516BD8BA11EB4A2511D125D /* Build configuration list for PBXNativeTarget "ZoneCore" */;
+			buildPhases = (
+				3C45CFE52689CAC22B638C53 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ZoneCore;
+			productName = ZoneCore;
+			productReference = CBF344E5098514139944972B /* libZoneCore.a */;
+			productType = "com.apple.product-type.library.static";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		98F54143AB4E86B28C3AFEE0 /* Project object */ = {isa = PBXProject; attributes = {BuildIndependentTargetsInParallel = 1; LastSwiftUpdateCheck = 1600; LastUpgradeCheck = 1600; TargetAttributes = {23E6EB9256AB02C8FDCB22A5 = {CreatedOnToolsVersion = 16.0; }; 1DA0D9971B8F68FA16F2D90F = {CreatedOnToolsVersion = 16.0; }; 62C6ECBE30A1BC1B0B8D3542 = {CreatedOnToolsVersion = 16.0; }; }; }; buildConfigurationList = 3D9126472EB99A9F5312E13E; compatibilityVersion = "Xcode 14.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base); mainGroup = ADCF10F76EBF2A74473E9DC4; productRefGroup = 00C45FD35CB0F9C5F764F070; projectDirPath = ""; projectRoot = ""; targets = (62C6ECBE30A1BC1B0B8D3542,23E6EB9256AB02C8FDCB22A5,1DA0D9971B8F68FA16F2D90F); };
+		98F54143AB4E86B28C3AFEE0 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					1DA0D9971B8F68FA16F2D90F = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					23E6EB9256AB02C8FDCB22A5 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					62C6ECBE30A1BC1B0B8D3542 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = 3D9126472EB99A9F5312E13E /* Build configuration list for PBXProject "TheZoneRemastered" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = ADCF10F76EBF2A74473E9DC4 /* TheZoneRemastered */;
+			productRefGroup = 00C45FD35CB0F9C5F764F070 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				62C6ECBE30A1BC1B0B8D3542 /* ZoneCore */,
+				23E6EB9256AB02C8FDCB22A5 /* The Zone macOS */,
+				1DA0D9971B8F68FA16F2D90F /* The Zone iPadOS */,
+			);
+		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		52BE7FC78026C9F1218132B7 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (8F6D66D4D3063EC255390571,A5F1DA8098428207D6D949CE); runOnlyForDeploymentPostprocessing = 0; };
-		ED26E5C002C90F61863E0E2E = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (243DF28945645BDCE7745A9A,221D7F6153E89DB0A888F80C); runOnlyForDeploymentPostprocessing = 0; };
+		52BE7FC78026C9F1218132B7 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8F6D66D4D3063EC255390571 /* Sprites in Resources */,
+				A5F1DA8098428207D6D949CE /* Sounds in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		ED26E5C002C90F61863E0E2E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				243DF28945645BDCE7745A9A /* Sprites in Resources */,
+				221D7F6153E89DB0A888F80C /* Sounds in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		3C45CFE52689CAC22B638C53 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (
-			F4B86DB5ABDC908B163E31AE /* zone_core.c in Sources */,
-			098EFD0EFB28C0AF8DF0150C /* zone_sprite_data.c in Sources */,
-			358B79156AE1C108CA6F932A /* ai.c in Sources */,
-			112AFEA16973CBD4C43929E8 /* angles.c in Sources */,
-			4F0B26D8F2656DD175D1C342 /* collision.c in Sources */,
-			A77A9EBA665DE5D1B343449D /* damage.c in Sources */,
-			47DCACBC6750D82B6FBE6D85 /* object_config.c in Sources */,
-			5E8F2B5593A83C74689CFC84 /* objects.c in Sources */,
-			F4B4EFEF92D7B148FB622109 /* player.c in Sources */,
-			F04C7C79B2744C7A421E40D7 /* render.c in Sources */,
-			AAC2A751A28248BD6D7B3E84 /* savegame.c in Sources */,
-			F317EE7474AFA7D752C8FFFA /* waves.c in Sources */,
-		); runOnlyForDeploymentPostprocessing = 0; };
-		94D24F03B1ACE1E41A36C07B = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (
-			6CE371EC0DF143746E4FE1C4 /* ZoneInputRouter.swift in Sources */,
-			68F09A9BC48BB54BD1CEECF6 /* ZoneControllerManager.swift in Sources */,
-			64119FB0C45D64E27D684E94 /* ZoneAudioEngine.swift in Sources */,
-			DC894827C243600A673CFD01 /* ZoneGameHost.swift in Sources */,
-			32C8690625F4A6F4720E1745 /* ZoneRenderer.swift in Sources */,
-			CA273BAAD54F70C3F27E79AB /* ZoneMetalView.swift in Sources */,
-			E78F69FD64D83E6DD8B623E6 /* ZoneTouchControls.swift in Sources */,
-			DFC8B24333EDF270F348F93E /* ZoneContentView.swift in Sources */,
-			AB2FAEB428A3D19634365AE0 /* ZoneShaders.metal in Sources */,
-			E2F453E7BD6CEA68030CC5D3 /* TheZoneMacApp.swift in Sources */,
-		); runOnlyForDeploymentPostprocessing = 0; };
-		590D0DA738F961B533817AD0 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (
-			4E9FE0E84D8E5063644F3EBE /* ZoneInputRouter.swift in Sources */,
-			CDE2CF248FD96607C217E90F /* ZoneControllerManager.swift in Sources */,
-			6D1CDDE71E7255171BCCCB34 /* ZoneAudioEngine.swift in Sources */,
-			D1AF6D013F1CE95274B51A58 /* ZoneGameHost.swift in Sources */,
-			B0229F1F578925813411814C /* ZoneRenderer.swift in Sources */,
-			33BF251B8E652F34ECD6E6C5 /* ZoneMetalView.swift in Sources */,
-			FA25A05587A8CD597B12E6F1 /* ZoneTouchControls.swift in Sources */,
-			5C83EB61F4F0D5F172E619B6 /* ZoneContentView.swift in Sources */,
-			649DBF00F48729787B8901F9 /* ZoneShaders.metal in Sources */,
-			69E65FCEF7EF3B9C26296605 /* TheZonePadApp.swift in Sources */,
-		); runOnlyForDeploymentPostprocessing = 0; };
+		3C45CFE52689CAC22B638C53 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F4B86DB5ABDC908B163E31AE /* zone_core.c in Sources */,
+				098EFD0EFB28C0AF8DF0150C /* zone_sprite_data.c in Sources */,
+				358B79156AE1C108CA6F932A /* ai.c in Sources */,
+				112AFEA16973CBD4C43929E8 /* angles.c in Sources */,
+				4F0B26D8F2656DD175D1C342 /* collision.c in Sources */,
+				A77A9EBA665DE5D1B343449D /* damage.c in Sources */,
+				47DCACBC6750D82B6FBE6D85 /* object_config.c in Sources */,
+				5E8F2B5593A83C74689CFC84 /* objects.c in Sources */,
+				F4B4EFEF92D7B148FB622109 /* player.c in Sources */,
+				F04C7C79B2744C7A421E40D7 /* render.c in Sources */,
+				AAC2A751A28248BD6D7B3E84 /* savegame.c in Sources */,
+				F317EE7474AFA7D752C8FFFA /* waves.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		590D0DA738F961B533817AD0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4E9FE0E84D8E5063644F3EBE /* ZoneInputRouter.swift in Sources */,
+				CDE2CF248FD96607C217E90F /* ZoneControllerManager.swift in Sources */,
+				6D1CDDE71E7255171BCCCB34 /* ZoneAudioEngine.swift in Sources */,
+				D1AF6D013F1CE95274B51A58 /* ZoneGameHost.swift in Sources */,
+				B0229F1F578925813411814C /* ZoneRenderer.swift in Sources */,
+				33BF251B8E652F34ECD6E6C5 /* ZoneMetalView.swift in Sources */,
+				FA25A05587A8CD597B12E6F1 /* ZoneTouchControls.swift in Sources */,
+				5C83EB61F4F0D5F172E619B6 /* ZoneContentView.swift in Sources */,
+				649DBF00F48729787B8901F9 /* ZoneShaders.metal in Sources */,
+				69E65FCEF7EF3B9C26296605 /* TheZonePadApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		94D24F03B1ACE1E41A36C07B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6CE371EC0DF143746E4FE1C4 /* ZoneInputRouter.swift in Sources */,
+				68F09A9BC48BB54BD1CEECF6 /* ZoneControllerManager.swift in Sources */,
+				64119FB0C45D64E27D684E94 /* ZoneAudioEngine.swift in Sources */,
+				DC894827C243600A673CFD01 /* ZoneGameHost.swift in Sources */,
+				32C8690625F4A6F4720E1745 /* ZoneRenderer.swift in Sources */,
+				CA273BAAD54F70C3F27E79AB /* ZoneMetalView.swift in Sources */,
+				E78F69FD64D83E6DD8B623E6 /* ZoneTouchControls.swift in Sources */,
+				DFC8B24333EDF270F348F93E /* ZoneContentView.swift in Sources */,
+				AB2FAEB428A3D19634365AE0 /* ZoneShaders.metal in Sources */,
+				E2F453E7BD6CEA68030CC5D3 /* TheZoneMacApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		05B6A557AAFA5DD7D4F973CD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 62C6ECBE30A1BC1B0B8D3542 /* ZoneCore */;
+			targetProxy = A222B3F32B99734E15BBD64E /* PBXContainerItemProxy */;
+		};
+		84BA7EFD727867F51F6F157D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 62C6ECBE30A1BC1B0B8D3542 /* ZoneCore */;
+			targetProxy = 5325676F77186D3F2138466A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
-		3092D7059CDF8F2CC5F60477 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {
-			CLANG_ENABLE_MODULES = YES;
-			CLANG_ENABLE_OBJC_ARC = YES;
-			CLANG_WARN_BOOL_CONVERSION = YES;
-			CLANG_WARN_CONSTANT_CONVERSION = YES;
-			CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-			CLANG_WARN_EMPTY_BODY = YES;
-			CLANG_WARN_ENUM_CONVERSION = YES;
-			CLANG_WARN_INFINITE_RECURSION = YES;
-			CLANG_WARN_INT_CONVERSION = YES;
-			CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-			CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-			CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-			CLANG_WARN_STRICT_PROTOTYPES = YES;
-			CLANG_WARN_SUSPICIOUS_MOVE = YES;
-			CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-			GCC_C_LANGUAGE_STANDARD = c11;
-			SWIFT_VERSION = 5.0;
-			DEBUG_INFORMATION_FORMAT = dwarf;
-			GCC_OPTIMIZATION_LEVEL = 0;
-			SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-		}; name = Debug; };
-		1DB70E120F5B9BF8D00795DC /* Release */ = {isa = XCBuildConfiguration; buildSettings = {
-			CLANG_ENABLE_MODULES = YES;
-			CLANG_ENABLE_OBJC_ARC = YES;
-			CLANG_WARN_BOOL_CONVERSION = YES;
-			CLANG_WARN_CONSTANT_CONVERSION = YES;
-			CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-			CLANG_WARN_EMPTY_BODY = YES;
-			CLANG_WARN_ENUM_CONVERSION = YES;
-			CLANG_WARN_INFINITE_RECURSION = YES;
-			CLANG_WARN_INT_CONVERSION = YES;
-			CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-			CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-			CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-			CLANG_WARN_STRICT_PROTOTYPES = YES;
-			CLANG_WARN_SUSPICIOUS_MOVE = YES;
-			CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-			GCC_C_LANGUAGE_STANDARD = c11;
-			SWIFT_VERSION = 5.0;
-			DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-			GCC_OPTIMIZATION_LEVEL = s;
-			SWIFT_OPTIMIZATION_LEVEL = "-O";
-		}; name = Release; };
-		80D63BCFC2087C13BD5B27E4 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {
-			PRODUCT_NAME = ZoneCore;
-			SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator";
-			HEADER_SEARCH_PATHS = "$(SRCROOT)/ZoneCore/Recovered/include $(SRCROOT)/ZoneCore/include $(SRCROOT)/ZoneCore/src";
-			GCC_C_LANGUAGE_STANDARD = c11;
-			SKIP_INSTALL = YES;
-		}; name = Debug; };
-		7428F1046751728D41C5DBAB /* Release */ = {isa = XCBuildConfiguration; buildSettings = {
-			PRODUCT_NAME = ZoneCore;
-			SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator";
-			HEADER_SEARCH_PATHS = "$(SRCROOT)/ZoneCore/Recovered/include $(SRCROOT)/ZoneCore/include $(SRCROOT)/ZoneCore/src";
-			GCC_C_LANGUAGE_STANDARD = c11;
-			SKIP_INSTALL = YES;
-		}; name = Release; };
-		547D583F7C199D1AF41BE66E /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {
-			PRODUCT_BUNDLE_IDENTIFIER = com.thezone.remastered.macos;
-			PRODUCT_NAME = "The Zone Remastered";
-			SDKROOT = macosx;
-			MACOSX_DEPLOYMENT_TARGET = 14.0;
-			GENERATE_INFOPLIST_FILE = YES;
-			CODE_SIGN_STYLE = Automatic;
-			ENABLE_HARDENED_RUNTIME = YES;
-			SWIFT_OBJC_BRIDGING_HEADER = "Shared/ZoneCore-Bridging-Header.h";
-			HEADER_SEARCH_PATHS = "$(SRCROOT)/ZoneCore/include $(SRCROOT)/ZoneCore/Recovered/include";
-			LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
-		}; name = Debug; };
-		FE4F1C27BEBBD9ED1FB5F7F5 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {
-			PRODUCT_BUNDLE_IDENTIFIER = com.thezone.remastered.macos;
-			PRODUCT_NAME = "The Zone Remastered";
-			SDKROOT = macosx;
-			MACOSX_DEPLOYMENT_TARGET = 14.0;
-			GENERATE_INFOPLIST_FILE = YES;
-			CODE_SIGN_STYLE = Automatic;
-			ENABLE_HARDENED_RUNTIME = YES;
-			SWIFT_OBJC_BRIDGING_HEADER = "Shared/ZoneCore-Bridging-Header.h";
-			HEADER_SEARCH_PATHS = "$(SRCROOT)/ZoneCore/include $(SRCROOT)/ZoneCore/Recovered/include";
-			LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
-		}; name = Release; };
-		02EF93BFEF3F624F53709CC4 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {
-			PRODUCT_BUNDLE_IDENTIFIER = com.thezone.remastered.ipad;
-			PRODUCT_NAME = "The Zone Remastered";
-			SDKROOT = iphoneos;
-			IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-			TARGETED_DEVICE_FAMILY = 2;
-			GENERATE_INFOPLIST_FILE = NO;
-			INFOPLIST_FILE = "iPadOS/Info.plist";
-			CODE_SIGN_STYLE = Automatic;
-			SWIFT_OBJC_BRIDGING_HEADER = "Shared/ZoneCore-Bridging-Header.h";
-			HEADER_SEARCH_PATHS = "$(SRCROOT)/ZoneCore/include $(SRCROOT)/ZoneCore/Recovered/include";
-			LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-			SUPPORTS_MACCATALYST = NO;
-		}; name = Debug; };
-		B29AFBEF72A53F92DB7BA61C /* Release */ = {isa = XCBuildConfiguration; buildSettings = {
-			PRODUCT_BUNDLE_IDENTIFIER = com.thezone.remastered.ipad;
-			PRODUCT_NAME = "The Zone Remastered";
-			SDKROOT = iphoneos;
-			IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-			TARGETED_DEVICE_FAMILY = 2;
-			GENERATE_INFOPLIST_FILE = NO;
-			INFOPLIST_FILE = "iPadOS/Info.plist";
-			CODE_SIGN_STYLE = Automatic;
-			SWIFT_OBJC_BRIDGING_HEADER = "Shared/ZoneCore-Bridging-Header.h";
-			HEADER_SEARCH_PATHS = "$(SRCROOT)/ZoneCore/include $(SRCROOT)/ZoneCore/Recovered/include";
-			LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-			SUPPORTS_MACCATALYST = NO;
-		}; name = Release; };
+		02EF93BFEF3F624F53709CC4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 66HNFXWR3Z;
+				GENERATE_INFOPLIST_FILE = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/ZoneCore/include",
+					"$(SRCROOT)/ZoneCore/Recovered/include",
+				);
+				INFOPLIST_FILE = iPadOS/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.action-games";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.thezone.remastered.ipad;
+				PRODUCT_NAME = "The Zone Remastered";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = "Shared/ZoneCore-Bridging-Header.h";
+				TARGETED_DEVICE_FAMILY = 2;
+			};
+			name = Debug;
+		};
+		1DB70E120F5B9BF8D00795DC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = c11;
+				GCC_OPTIMIZATION_LEVEL = s;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		3092D7059CDF8F2CC5F60477 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				GCC_C_LANGUAGE_STANDARD = c11;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		547D583F7C199D1AF41BE66E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 66HNFXWR3Z;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/ZoneCore/include",
+					"$(SRCROOT)/ZoneCore/Recovered/include",
+				);
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.thezone.remastered.macos;
+				PRODUCT_NAME = "The Zone Remastered";
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = "Shared/ZoneCore-Bridging-Header.h";
+			};
+			name = Debug;
+		};
+		7428F1046751728D41C5DBAB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_C_LANGUAGE_STANDARD = c11;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/ZoneCore/Recovered/include",
+					"$(SRCROOT)/ZoneCore/include",
+					"$(SRCROOT)/ZoneCore/src",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.6;
+				PRODUCT_NAME = ZoneCore;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+			};
+			name = Release;
+		};
+		80D63BCFC2087C13BD5B27E4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_C_LANGUAGE_STANDARD = c11;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/ZoneCore/Recovered/include",
+					"$(SRCROOT)/ZoneCore/include",
+					"$(SRCROOT)/ZoneCore/src",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.6;
+				PRODUCT_NAME = ZoneCore;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+			};
+			name = Debug;
+		};
+		B29AFBEF72A53F92DB7BA61C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 66HNFXWR3Z;
+				GENERATE_INFOPLIST_FILE = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/ZoneCore/include",
+					"$(SRCROOT)/ZoneCore/Recovered/include",
+				);
+				INFOPLIST_FILE = iPadOS/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.action-games";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.thezone.remastered.ipad;
+				PRODUCT_NAME = "The Zone Remastered";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = "Shared/ZoneCore-Bridging-Header.h";
+				TARGETED_DEVICE_FAMILY = 2;
+			};
+			name = Release;
+		};
+		FE4F1C27BEBBD9ED1FB5F7F5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 66HNFXWR3Z;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/ZoneCore/include",
+					"$(SRCROOT)/ZoneCore/Recovered/include",
+				);
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.thezone.remastered.macos;
+				PRODUCT_NAME = "The Zone Remastered";
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = "Shared/ZoneCore-Bridging-Header.h";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		3D9126472EB99A9F5312E13E = {isa = XCConfigurationList; buildConfigurations = (3092D7059CDF8F2CC5F60477,1DB70E120F5B9BF8D00795DC); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-		D516BD8BA11EB4A2511D125D = {isa = XCConfigurationList; buildConfigurations = (80D63BCFC2087C13BD5B27E4,7428F1046751728D41C5DBAB); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-		549B593D4A85389D10F0F372 = {isa = XCConfigurationList; buildConfigurations = (547D583F7C199D1AF41BE66E,FE4F1C27BEBBD9ED1FB5F7F5); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-		B038A6AB16A125AF3A34D06C = {isa = XCConfigurationList; buildConfigurations = (02EF93BFEF3F624F53709CC4,B29AFBEF72A53F92DB7BA61C); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		3D9126472EB99A9F5312E13E /* Build configuration list for PBXProject "TheZoneRemastered" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3092D7059CDF8F2CC5F60477 /* Debug */,
+				1DB70E120F5B9BF8D00795DC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		549B593D4A85389D10F0F372 /* Build configuration list for PBXNativeTarget "The Zone macOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				547D583F7C199D1AF41BE66E /* Debug */,
+				FE4F1C27BEBBD9ED1FB5F7F5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B038A6AB16A125AF3A34D06C /* Build configuration list for PBXNativeTarget "The Zone iPadOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				02EF93BFEF3F624F53709CC4 /* Debug */,
+				B29AFBEF72A53F92DB7BA61C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D516BD8BA11EB4A2511D125D /* Build configuration list for PBXNativeTarget "ZoneCore" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				80D63BCFC2087C13BD5B27E4 /* Debug */,
+				7428F1046751728D41C5DBAB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 	};
 	rootObject = 98F54143AB4E86B28C3AFEE0 /* Project object */;
