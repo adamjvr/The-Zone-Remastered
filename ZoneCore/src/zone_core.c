@@ -54,6 +54,8 @@ struct WorldObject {
     int side;
     int damage;
     int tick;
+    int state_84;            /* PPC +84: fixed-wave mobile-Mother eligibility flag */
+    int mother_motion_state; /* PPC +86: Mother Base movement selector (0,1,2) */
 
     /* Portable equivalents of the recovered object-link/counter state.
        The shipping PPC object stores object links as pointers; ZoneCore uses
@@ -68,6 +70,7 @@ struct WorldObject {
 
 struct ZoneGame {
     uint32_t rng;
+    uint32_t behavior_tick; /* deterministic equivalent of the shared PPC behavior cadence */
     float player_x, player_y;
     float player_vx, player_vy; /* portable screen X/Y */
     float heading;
@@ -344,6 +347,7 @@ static void populate_fixed_wave(ZoneGame *g, unsigned wave) {
     }
 
     int bloo_left = preset->bloo_subtype_quota;
+    int mobile_mothers_left = preset->mobile_moth_quota;
     int mother_slots[18];
     int mother_count = 0;
 
@@ -362,6 +366,14 @@ static void populate_fixed_wave(ZoneGame *g, unsigned wave) {
             --bloo_left;
         } else {
             m->subtype = TZ_TYPE_SWAR;
+        }
+
+        /* PPC 0x13B94..0x13BB0 marks the first mobile_moth_quota Mothers
+           with state +84 = 1. This is an eligibility flag; motion remains
+           dormant until the destruction path writes selector +86. */
+        if (mobile_mothers_left > 0) {
+            m->state_84 = 1;
+            --mobile_mothers_left;
         }
         ++g->bases_remaining;
     }
@@ -575,8 +587,7 @@ static void update_simple_enemy_ai(ZoneGame *g, struct WorldObject *o) {
 }
 
 
-static void update_bee_ai(ZoneGame *g, struct WorldObject *o) {
-    if (!g->player_alive || !o || !o->active || o->type != TZ_TYPE_BEE) return;
+static void update_accelerative_chase_velocity(ZoneGame *g, struct WorldObject *o) {
     const float dx = shortest_wrapped_delta(o->x, g->player_x, ZONE_LOGICAL_WIDTH);
     const float dy = shortest_wrapped_delta(o->y, g->player_y, ZONE_LOGICAL_HEIGHT);
     const float mag = sqrtf(dx * dx + dy * dy);
@@ -595,7 +606,36 @@ static void update_bee_ai(ZoneGame *g, struct WorldObject *o) {
         o->vx = ux * g->player_max_speed;
         o->vy = uy * g->player_max_speed;
     }
+}
+
+static void update_bee_ai(ZoneGame *g, struct WorldObject *o) {
+    if (!g->player_alive || !o || !o->active || o->type != TZ_TYPE_BEE) return;
+    update_accelerative_chase_velocity(g, o);
     o->frame = frame24_toward(o->x, o->y, g->player_x, g->player_y);
+}
+
+static void update_mother_ai(ZoneGame *g, struct WorldObject *o) {
+    if (!g->player_alive || !o || !o->active || o->type != TZ_TYPE_MOTH) return;
+
+    /* PPC 0x14C70 dispatches on object +86.
+       0: preserve existing motion
+       1: accelerative chase, accepting over-cap changes only when slowing
+       2: direct chase, max speed within radius 200 and cruise speed outside.
+       The original routes nonzero states through 0xE6F4; ZoneCore keeps the
+       continuous-vector abstraction already used by Bee/Seeker and applies
+       recovered X/Y scale at integration. */
+    if (o->mother_motion_state == 1) {
+        update_accelerative_chase_velocity(g, o);
+    } else if (o->mother_motion_state == 2) {
+        const float dx = shortest_wrapped_delta(o->x, g->player_x, ZONE_LOGICAL_WIDTH);
+        const float dy = shortest_wrapped_delta(o->y, g->player_y, ZONE_LOGICAL_HEIGHT);
+        const float dist_sq = dx * dx + dy * dy;
+        const float mag = sqrtf(dist_sq);
+        if (mag <= 0.0001f) return;
+        const float speed = tz_mother_direct_speed(dist_sq, g->player_max_speed);
+        o->vx = (dx / mag) * speed;
+        o->vy = (dy / mag) * speed;
+    }
 }
 
 static void update_seeker_ai(ZoneGame *g, struct WorldObject *o) {
@@ -618,6 +658,7 @@ static void update_complex_enemy_ai(ZoneGame *g, struct WorldObject *o) {
     if (!o || !o->active) return;
     if (o->type == TZ_TYPE_BEE) update_bee_ai(g, o);
     else if (o->type == TZ_TYPE_SEEK) update_seeker_ai(g, o);
+    else if (o->type == TZ_TYPE_MOTH) update_mother_ai(g, o);
 }
 
 static void release_projectile_source(ZoneGame *g, struct Projectile *p) {
@@ -633,13 +674,11 @@ static void deactivate_projectile(ZoneGame *g, struct Projectile *p) {
     p->active = 0;
 }
 
-static int spawn_hostile_projectile(ZoneGame *g, int source_slot) {
+static int spawn_hostile_projectile_with_cap(ZoneGame *g, int source_slot, int source_cap) {
     if (!g->player_alive || source_slot < 0 || source_slot >= ZONE_WORLD_CAP) return 0;
     struct WorldObject *source = &g->world[source_slot];
     if (!source->active) return 0;
-
-    const int cap = tz_enemy_fire_active_cap(source->type);
-    if (cap <= 0 || source->hostile_shots >= cap) return 0;
+    if (source_cap > 0 && source->hostile_shots >= source_cap) return 0;
 
     const float dx = shortest_wrapped_delta(source->x, g->player_x, ZONE_LOGICAL_WIDTH);
     const float dy = shortest_wrapped_delta(source->y, g->player_y, ZONE_LOGICAL_HEIGHT);
@@ -666,6 +705,14 @@ static int spawn_hostile_projectile(ZoneGame *g, int source_slot) {
     return 0;
 }
 
+static int spawn_hostile_projectile(ZoneGame *g, int source_slot) {
+    if (!g || source_slot < 0 || source_slot >= ZONE_WORLD_CAP) return 0;
+    const struct WorldObject *source = &g->world[source_slot];
+    const int cap = source->active ? tz_enemy_fire_active_cap(source->type) : 0;
+    if (cap <= 0) return 0;
+    return spawn_hostile_projectile_with_cap(g, source_slot, cap);
+}
+
 static void update_enemy_fire(ZoneGame *g, int slot) {
     if (!g->player_alive || slot < 0 || slot >= ZONE_WORLD_CAP) return;
     struct WorldObject *o = &g->world[slot];
@@ -676,6 +723,19 @@ static void update_enemy_fire(ZoneGame *g, int slot) {
     if (tz_enemy_should_fire(o->type, random_word)) {
         (void)spawn_hostile_projectile(g, slot);
     }
+}
+
+static void update_hq_fire(ZoneGame *g, int slot) {
+    if (!g->player_alive || slot < 0 || slot >= ZONE_WORLD_CAP) return;
+    struct WorldObject *o = &g->world[slot];
+    if (!o->active || o->type != TZ_TYPE_BASE) return;
+    if ((g->behavior_tick % (uint32_t)tz_hq_fire_interval()) != 0u) return;
+
+    /* PPC base handler 0x14B18 has a shared 15-tick cadence and allocates a
+       `fire` object aimed at the player. Unlike the Bloo/Bee/Raider/Seeker
+       fire tail, this branch does not consult the per-shooter +72 cap of 3.
+       ZoneCore still obeys its finite projectile pool. */
+    (void)spawn_hostile_projectile_with_cap(g, slot, 0);
 }
 
 static void spawn_explosion_bank(ZoneGame *g, float x, float y,
@@ -759,6 +819,20 @@ static void fragment_big_rock(ZoneGame *g, const struct WorldObject *o) {
     }
 }
 
+static void activate_mobile_mother_after_player_kill(ZoneGame *g) {
+    /* PPC 0x19C38..0x19C98 walks the object list after a player-shot kill,
+       selects the first live Mother Base with state +84 != 0, and writes the
+       RandomRange(1,3) result to +86. The recovered helper's upper bound is
+       exclusive, so the selector is exactly 1 or 2. */
+    for (int i = 0; i < ZONE_WORLD_CAP; ++i) {
+        struct WorldObject *m = &g->world[i];
+        if (!m->active || m->type != TZ_TYPE_MOTH || m->state_84 == 0) continue;
+        m->mother_motion_state =
+            tz_mother_motion_state_from_random_word((uint16_t)(rng_next(g) & 0xFFFFu));
+        return;
+    }
+}
+
 static void destroy_world_object(ZoneGame *g, struct WorldObject *o) {
     if (!o || !o->active) return;
     const int slot = (int)(o - g->world);
@@ -831,6 +905,7 @@ static int apply_player_shot_to_world(ZoneGame *g, int slot, int damage) {
 
     if (o->damage >= threshold) {
         destroy_world_object(g, o);
+        activate_mobile_mother_after_player_kill(g);
         return 1;
     }
 
@@ -963,6 +1038,8 @@ void zone_game_step(ZoneGame *g, ZoneInput in) {
     g->pause_latch = in.pause;
     if (g->paused) return;
 
+    ++g->behavior_tick;
+
     if (g->player_alive) {
         const float turn = in.turn < -0.25f ? -1.0f : (in.turn > 0.25f ? 1.0f : 0.0f);
         g->heading = tz_wrap_heading(g->heading + turn * ZONE_CLASSIC_TURN_DEG);
@@ -1004,6 +1081,7 @@ void zone_game_step(ZoneGame *g, ZoneInput in) {
         update_simple_enemy_ai(g, o);
         update_complex_enemy_ai(g, o);
         update_enemy_fire(g, i);
+        update_hq_fire(g, i);
 
         /* Collision-transferred motion plus live enemy motion. The simple
            swar/bloo/moto/raid families use recovered integer per-axis velocity
@@ -1385,6 +1463,38 @@ int32_t zone_game_debug_apply_player_shot(ZoneGame *g, int32_t index) {
 int32_t zone_game_debug_trigger_hq_defense(ZoneGame *g, int32_t index) {
     if (!g) return 0;
     return launch_hq_defenders(g, (int)index);
+}
+
+int32_t zone_game_debug_world_state84(const ZoneGame *g, int32_t index) {
+    if (!g || index < 0 || index >= ZONE_WORLD_CAP || !g->world[index].active) return -1;
+    return g->world[index].state_84;
+}
+
+int32_t zone_game_debug_mother_motion_state(const ZoneGame *g, int32_t index) {
+    if (!g || index < 0 || index >= ZONE_WORLD_CAP || !g->world[index].active) return -1;
+    return g->world[index].mother_motion_state;
+}
+
+void zone_game_debug_set_mother_state(ZoneGame *g, int32_t index,
+                                      int32_t state84, int32_t motion_state) {
+    if (!g || index < 0 || index >= ZONE_WORLD_CAP) return;
+    struct WorldObject *o = &g->world[index];
+    if (!o->active || o->type != TZ_TYPE_MOTH) return;
+    o->state_84 = state84 ? 1 : 0;
+    o->mother_motion_state =
+        motion_state < 0 ? 0 : (motion_state > 2 ? 2 : motion_state);
+}
+
+void zone_game_debug_load_fixed_wave(ZoneGame *g, int32_t wave) {
+    if (!g) return;
+    if (wave < 1) wave = 1;
+    if (wave > 18) wave = 18;
+    g->wave = wave;
+    populate_fixed_wave(g, (unsigned)wave);
+}
+
+uint32_t zone_game_debug_behavior_tick(const ZoneGame *g) {
+    return g ? g->behavior_tick : 0u;
 }
 
 int32_t zone_game_active_hostile_projectiles(const ZoneGame *g) {

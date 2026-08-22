@@ -107,6 +107,12 @@ int16_t tz_mother_defender_batch_count(bool professional, uint16_t random_word);
  * four in Professional mode and two in Beginner mode. */
 int16_t tz_hq_defender_active_cap(bool professional);
 
+/* Mother Base movement selector and Headquarters base-fire behavior.
+ * PPC 0x14C70, 0x19C38..0x19C98 and 0x14B18. */
+int16_t tz_mother_motion_state_from_random_word(uint16_t random_word);
+float tz_mother_direct_speed(float distance_squared, float maximum_speed);
+int16_t tz_hq_fire_interval(void);
+
 /* Recovered collision semantics. */
 void tz_swap_fixed_velocity(TzZoneObjectPPC32 *a, TzZoneObjectPPC32 *b);
 void tz_swap_float_velocity(TzZoneObjectPPC32 *a, TzZoneObjectPPC32 *b);

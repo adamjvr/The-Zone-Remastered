@@ -146,3 +146,26 @@ int16_t tz_mother_defender_batch_count(bool professional, uint16_t random_word) 
 int16_t tz_hq_defender_active_cap(bool professional) {
     return professional ? 4 : 2;
 }
+
+
+/* PPC 0x19C64 calls RandomRange(1,3), implemented by helper 0x4E24.
+ * 0x4E24 treats the upper endpoint as exclusive:
+ *   lower + ((uint16(Random()) * (upper-lower)) >> 16)
+ * so this call yields exactly state 1 or state 2. */
+int16_t tz_mother_motion_state_from_random_word(uint16_t random_word) {
+    const uint32_t scaled = (uint32_t)random_word * 2u;
+    return (int16_t)(1u + (scaled >> 16));
+}
+
+/* Mother state 2 in PPC 0x14E1C..0x14FDC uses the same recovered 200-unit
+ * squared-distance threshold as Seeker: runtime maximum speed inside,
+ * fixed cruise speed 10 outside. */
+float tz_mother_direct_speed(float distance_squared, float maximum_speed) {
+    return distance_squared <= 40000.0f ? maximum_speed : 10.0f;
+}
+
+/* HQ/base handler PPC 0x14B18 only enters its fire-allocation branch when the
+ * shared behavior tick is divisible by 15. */
+int16_t tz_hq_fire_interval(void) {
+    return 15;
+}

@@ -2,7 +2,7 @@
   <img src="Docs/images/TheZoneRemastered-Ship.png" alt="The Zone Remastered ship" width="720">
 </p>
 
-# The Zone Remastered — Engineering Milestone 0.8
+# The Zone Remastered — Engineering Milestone 0.9
 
 Native Apple remaster built from the reverse-engineered *TheZone* 1.5.1 game logic and assets.
 
@@ -11,6 +11,24 @@ Native Apple remaster built from the reverse-engineered *TheZone* 1.5.1 game log
 - **The Zone macOS** — native macOS application, verified building and running on macOS 15 Sequoia. Keyboard is canonical; controllers exposed by Apple's `GameController.framework` are supported as an alternate input path.
 - **The Zone iPadOS** — separate native iPadOS application target. Apple-supported game controllers are first-class; touch controls remain available when no controller is connected.
 - **ZoneCore** — deterministic portable C engine library, with no AppKit/UIKit/Metal dependencies.
+
+## Milestone 0.9 — Mother Base Motion & Headquarters Fire
+
+Milestone 0.9 advances the Classic-fidelity roadmap directly from the committed 0.8 base-damage/HQ-defense checkpoint.
+
+- promotes the recovered fixed-wave `mobile_moth_quota` into live Mother Base object state `+84`;
+- promotes the Mother Base movement selector at PPC `0x14C70`: state **0** preserves existing motion, state **1** uses the recovered accelerative chase rule, and state **2** uses direct pursuit;
+- state 2 uses the recovered **200-unit** near/far threshold: runtime maximum speed inside the radius and recovered cruise speed **10** outside;
+- promotes the destruction consequence at PPC `0x19C38..0x19C98`: after a player-shot kill, the first eligible mobile Mother receives state **1 or 2** in `+86`;
+- implements the original range-helper behavior for that selector: `RandomRange(1,3)` has an upper-exclusive bound, therefore state 3 is unreachable at this callsite;
+- keeps Mother Base/HQ sprite frames stable while motion state changes;
+- promotes the independent Headquarters/base behavior path at PPC `0x14B18`: an aimed hostile `fire` projectile every **15 behavior ticks** when a projectile slot is available;
+- keeps HQ firing separate from the recovered **3 active shots/shooter** tail used by Bloody, Bee, Raider, and Seeker;
+- adds deterministic regression coverage for wave quota assignment, kill activation, all three Mother motion states, and HQ firing cadence.
+
+The portable core still uses its split world/projectile pools rather than the original shared 80-object allocator. That allocator-parity detail, exact linked-list traversal ordering, classic Mac `Random()` sequence compatibility, and remaining Mother/HQ collision/state edge behavior stay explicitly pending rather than being guessed.
+
+Detailed notes: [`Docs/MILESTONE-0.9.md`](Docs/MILESTONE-0.9.md).
 
 ## Milestone 0.8 — Base Damage Feedback & Headquarters Defense
 
@@ -146,7 +164,7 @@ The source art remains untouched; generated icon PNGs are derived assets.
 
 ## Accuracy status
 
-Milestone 0.8 is the current recovered-gameplay build. It is not yet a claim of 100% behavior parity. Exact sprite collision, object/save layouts, damage tables, fixed wave presets, several AI routines and core motion semantics have been recovered. Remaining AI/collision/wave/projectile/equipment state machines are being lifted into `ZoneCore/Recovered` and will replace temporary milestone logic subsystem-by-subsystem.
+Milestone 0.9 is the current recovered-gameplay build. It is not yet a claim of 100% behavior parity. Exact sprite collision, object/save layouts, damage tables, fixed wave presets, several AI routines and core motion semantics have been recovered. Remaining AI/collision/wave/projectile/equipment state machines are being lifted into `ZoneCore/Recovered` and will replace temporary milestone logic subsystem-by-subsystem.
 
 ## Asset completeness
 

@@ -464,6 +464,134 @@ static void test_mother_base_frame_is_stable(void) {
     zone_game_destroy(g);
 }
 
+
+static void test_recovered_mother_motion_and_hq_fire_constants(void) {
+    assert(tz_mother_motion_state_from_random_word(0u) == 1);
+    assert(tz_mother_motion_state_from_random_word(32767u) == 1);
+    assert(tz_mother_motion_state_from_random_word(32768u) == 2);
+    assert(tz_mother_motion_state_from_random_word(65535u) == 2);
+
+    assert(nearly(tz_mother_direct_speed(40000.0f, 25.0f), 25.0f));
+    assert(nearly(tz_mother_direct_speed(40000.1f, 25.0f), 10.0f));
+    assert(tz_hq_fire_interval() == 15);
+}
+
+static void test_mobile_mother_quota_and_kill_activation(void) {
+    ZoneGame *g = zone_game_create(0x19C64u);
+    assert(g);
+
+    /* Professional Wave 10 is the first fixed wave with mobile_moth_quota=1. */
+    zone_game_debug_load_fixed_wave(g, 10);
+    assert(zone_game_count_type(g, TZ_TYPE_MOTH) == 5);
+
+    int flagged = 0;
+    int32_t flagged_moth = -1;
+    for (int n = 0; n < 5; ++n) {
+        const int32_t moth = zone_game_debug_find_nth_type(g, TZ_TYPE_MOTH, n);
+        assert(moth >= 0);
+        if (zone_game_debug_world_state84(g, moth) != 0) {
+            ++flagged;
+            if (flagged_moth < 0) flagged_moth = moth;
+        }
+        assert(zone_game_debug_mother_motion_state(g, moth) == 0);
+    }
+    assert(flagged == 1);
+    assert(flagged_moth >= 0);
+
+    /* PPC 0x19C38..0x19C98 runs after a player-shot destruction. Asteroids
+       have a one-hit threshold, making this a clean event trigger. */
+    const int32_t asteroid = zone_game_debug_find_nth_type(g, TZ_TYPE_ASTE, 0);
+    assert(asteroid >= 0);
+    assert(zone_game_debug_apply_player_shot(g, asteroid) == 1);
+    const int32_t state = zone_game_debug_mother_motion_state(g, flagged_moth);
+    assert(state == 1 || state == 2);
+    zone_game_destroy(g);
+}
+
+static void test_mother_motion_states_live(void) {
+    /* State 0 preserves transferred/existing motion. */
+    ZoneGame *idle = zone_game_create(0x14C700u);
+    assert(idle);
+    const int32_t im = zone_game_debug_find_nth_type(idle, TZ_TYPE_MOTH, 0);
+    assert(im >= 0);
+    park_wave1_except(idle, im, -1);
+    zone_game_debug_set_player_state(idle, 400.0f, 240.0f, 0.0f, 0.0f);
+    zone_game_debug_set_world_state(idle, im, 100.0f, 240.0f, 3.0f, -2.0f, 0);
+    zone_game_debug_set_mother_state(idle, im, 0, 0);
+    zone_game_step(idle, (ZoneInput){0});
+    ZoneDebugBodyState s = zone_game_debug_world_state(idle, im);
+    assert(nearly(s.vx, 3.0f) && nearly(s.vy, -2.0f));
+    zone_game_destroy(idle);
+
+    /* State 1 uses the recovered accelerative chase rule. */
+    ZoneGame *accel = zone_game_create(0x14C701u);
+    assert(accel);
+    const int32_t am = zone_game_debug_find_nth_type(accel, TZ_TYPE_MOTH, 0);
+    assert(am >= 0);
+    park_wave1_except(accel, am, -1);
+    zone_game_debug_set_player_state(accel, 400.0f, 240.0f, 0.0f, 0.0f);
+    zone_game_debug_set_world_state(accel, am, 100.0f, 240.0f, 0.0f, 0.0f, 0);
+    const int32_t frame_before = zone_game_debug_world_state(accel, am).frame;
+    zone_game_debug_set_mother_state(accel, am, 1, 1);
+    zone_game_step(accel, (ZoneInput){0});
+    s = zone_game_debug_world_state(accel, am);
+    assert(nearly(s.vx, 1.0f) && nearly(s.vy, 0.0f));
+    assert(s.frame == frame_before);
+    zone_game_destroy(accel);
+
+    /* State 2 is direct chase: cruise 10 beyond radius 200, max speed inside. */
+    ZoneGame *direct_far = zone_game_create(0x14C702u);
+    assert(direct_far);
+    const int32_t fm = zone_game_debug_find_nth_type(direct_far, TZ_TYPE_MOTH, 0);
+    assert(fm >= 0);
+    park_wave1_except(direct_far, fm, -1);
+    zone_game_debug_set_player_state(direct_far, 400.0f, 240.0f, 0.0f, 0.0f);
+    zone_game_debug_set_world_state(direct_far, fm, 100.0f, 240.0f, 0.0f, 0.0f, 0);
+    zone_game_debug_set_mother_state(direct_far, fm, 1, 2);
+    zone_game_step(direct_far, (ZoneInput){0});
+    s = zone_game_debug_world_state(direct_far, fm);
+    assert(nearly(hypotf(s.vx, s.vy), 10.0f));
+    zone_game_destroy(direct_far);
+
+    ZoneGame *direct_near = zone_game_create(0x14C703u);
+    assert(direct_near);
+    const int32_t nm = zone_game_debug_find_nth_type(direct_near, TZ_TYPE_MOTH, 0);
+    assert(nm >= 0);
+    park_wave1_except(direct_near, nm, -1);
+    zone_game_debug_set_player_state(direct_near, 300.0f, 240.0f, 0.0f, 0.0f);
+    zone_game_debug_set_world_state(direct_near, nm, 100.0f, 240.0f, 0.0f, 0.0f, 0);
+    zone_game_debug_set_mother_state(direct_near, nm, 1, 2);
+    zone_game_step(direct_near, (ZoneInput){0});
+    s = zone_game_debug_world_state(direct_near, nm);
+    assert(nearly(hypotf(s.vx, s.vy), zone_game_player_max_speed(direct_near)));
+    zone_game_destroy(direct_near);
+}
+
+static void test_hq_15_tick_fire_cadence(void) {
+    ZoneGame *g = zone_game_create(0x14B18u);
+    assert(g);
+    park_wave1_except(g, -1, -1);
+    zone_game_debug_set_player_state(g, 400.0f, 240.0f, 0.0f, 0.0f);
+    const int32_t hq = zone_game_debug_spawn_world(
+        g, TZ_TYPE_BASE, 100.0f, 240.0f, 0.0f, 0.0f);
+    assert(hq >= 0);
+
+    advance_ticks(g, 14);
+    assert(zone_game_debug_behavior_tick(g) == 14u);
+    assert(zone_game_active_hostile_projectiles(g) == 0);
+
+    advance_ticks(g, 1);
+    assert(zone_game_debug_behavior_tick(g) == 15u);
+    assert(zone_game_active_hostile_projectiles(g) == 1);
+
+    advance_ticks(g, 14);
+    assert(zone_game_active_hostile_projectiles(g) == 1);
+    advance_ticks(g, 1);
+    assert(zone_game_debug_behavior_tick(g) == 30u);
+    assert(zone_game_active_hostile_projectiles(g) == 2);
+    zone_game_destroy(g);
+}
+
 static void test_muzzle_table(void) {
     const TzMuzzleOffset f0 = tz_ship_muzzle_offset_frame48(0);
     const TzMuzzleOffset f12 = tz_ship_muzzle_offset_frame48(12);
@@ -572,6 +700,10 @@ static void test_world_body_exchange_latch(void) {
 
 int main(void) {
     test_muzzle_table();
+    test_recovered_mother_motion_and_hq_fire_constants();
+    test_mobile_mother_quota_and_kill_activation();
+    test_mother_motion_states_live();
+    test_hq_15_tick_fire_cadence();
     test_recovered_hostile_fire_constants();
     test_hostile_projectile_cap_and_player_hit();
     test_seeker_near_far_speed_switch();
@@ -653,5 +785,8 @@ int main(void) {
     puts("Mother Base/HQ sprite-frame stability regression: PASS");
     puts("Mother Base 40-hit damage continuity + hit feedback: PASS");
     puts("Recovered Headquarters nonlethal defender response: PASS");
+    puts("Fixed-wave mobile Mother +84 quota / kill activation: PASS");
+    puts("Mother Base states 0/1/2 live movement: PASS");
+    puts("Headquarters 15-tick independent fire cadence: PASS");
     return 0;
 }

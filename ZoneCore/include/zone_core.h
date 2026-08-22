@@ -114,6 +114,12 @@ int32_t zone_game_debug_enemy_fire(ZoneGame *game, int32_t source_index);
 int32_t zone_game_debug_world_damage(const ZoneGame *game, int32_t index);
 int32_t zone_game_debug_apply_player_shot(ZoneGame *game, int32_t index);
 int32_t zone_game_debug_trigger_hq_defense(ZoneGame *game, int32_t index);
+int32_t zone_game_debug_world_state84(const ZoneGame *game, int32_t index);
+int32_t zone_game_debug_mother_motion_state(const ZoneGame *game, int32_t index);
+void zone_game_debug_set_mother_state(ZoneGame *game, int32_t index,
+                                      int32_t state84, int32_t motion_state);
+void zone_game_debug_load_fixed_wave(ZoneGame *game, int32_t wave);
+uint32_t zone_game_debug_behavior_tick(const ZoneGame *game);
 
 #ifdef __cplusplus
 }

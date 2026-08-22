@@ -1,0 +1,30 @@
+The Zone Remastered — Milestone 0.9 overlay
+Base commit required: b7e4bdcbc38f266fa460249c26566a3506f123db
+Base milestone: 0.8 — Base Damage Feedback & Headquarters Defense
+New milestone: 0.9 — Mother Base Motion & Headquarters Fire
+
+Files in this overlay:
+  APPLY-MILESTONE-0.9.command
+  Docs/MILESTONE-0.9.md
+  Docs/ROADMAP.md
+  README.md
+  Tools/verify-milestone-0.9.command
+  ZoneCore/Recovered/include/thezone_decomp.h
+  ZoneCore/Recovered/src/ai.c
+  ZoneCore/include/zone_core.h
+  ZoneCore/src/zone_core.c
+  ZoneCore/tests/test_zone_core.c
+  FILES.sha256
+
+Behavior promoted:
+  - fixed-wave mobile_moth_quota -> Mother state +84
+  - player-shot kill activation -> Mother selector +86 = 1 or 2
+  - Mother selector states 0/1/2 at PPC 0x14C70
+  - state-2 200-unit near/far speed switch, cruise speed 10
+  - independent Headquarters/base 15-tick aimed-fire path at PPC 0x14B18
+
+Verification:
+  ./Tools/verify-milestone-0.9.command
+
+Native build after verification:
+  ./Tools/build-macos.command

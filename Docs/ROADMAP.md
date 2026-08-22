@@ -26,7 +26,7 @@ Completed:
 
 Remaining forensic work is mostly in service of behavioral parity: historical version binary diffs, exact classic RNG, and unresolved state-machine constants.
 
-## Phase 1 — Gameplay decompilation — ~80%
+## Phase 1 — Gameplay decompilation — ~85%
 
 **Status: active.**
 
@@ -49,7 +49,7 @@ Recovered or substantially mapped:
 
 Major remaining lifts:
 
-- complete Mother Base/HQ movement state machines;
+- remaining Mother Base/HQ collision/state edge semantics and original shared-object-pool behavior;
 - Bee stun/return edge states around the now-live continuous-vector chase;
 - remaining Seeker edge states around the now-live 200-unit speed switch;
 - Rotor parent/orbit/attack/return state machine;
@@ -83,9 +83,9 @@ Completed:
 
 Remaining platform work is primarily product/UI polish and iPad device validation, not architectural restructuring.
 
-## Phase 3 — Live Classic gameplay reconstruction — ~55%
+## Phase 3 — Live Classic gameplay reconstruction — ~60%
 
-**Current phase: Milestone 0.8.**
+**Current phase: Milestone 0.9.**
 
 Delivered through 0.5:
 
@@ -124,9 +124,18 @@ Milestone 0.8 starts with the known 0.7 base-damage play-test issue and keeps th
 - promotes Headquarters `0x16390` defender deployment with the recovered active cap of **4 Professional / 2 Beginner** and four corner launch positions;
 - adds long-run damage and HQ-replenishment regression tests before further state-machine promotion.
 
-Next priorities remain substantially unchanged:
+Milestone 0.9 promotes the next recovered base-state behavior without inventing unresolved rules:
 
-1. complete Mother Base/HQ state machines;
+- fixed-wave `mobile_moth_quota` now becomes live Mother Base state `+84`;
+- PPC `0x14C70` Mother states **0/1/2** are live: preserve motion, accelerative chase, and direct near/far pursuit;
+- a player-shot destruction now executes the recovered `0x19C38..0x19C98` activation path and writes selector state **1 or 2** to the first eligible mobile Mother;
+- the `RandomRange(1,3)` callsite is modeled with the recovered upper-exclusive range semantics;
+- Headquarters use their independent `0x14B18` base handler and fire an aimed `fire` projectile every **15 behavior ticks**;
+- all 0.8 damage feedback, defender caps, Bee separation, and fixed base-frame behavior remain regression-covered.
+
+Next priorities:
+
+1. finish remaining Mother/HQ collision-state and original object-list/shared-capacity parity details;
 2. complete Bee/Seeker edge states and Rotor orbit/attack/return AI;
 3. finish hostile-projectile lifetime and special collision consequences;
 4. complete wave-transition presentation and procedural waves 19+;
