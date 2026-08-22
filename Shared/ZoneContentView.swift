@@ -11,6 +11,7 @@ struct ZoneContentView: View {
           Text("SCORE \(host.hud.score)")
           Text("SHIELDS \(host.hud.shields)%")
           Text("AMMO \(host.hud.ammo)")
+          Text(String(format: "SPEED %.0f/%.0f", host.hud.speed, host.hud.maximumSpeed))
           Text("BASES \(host.hud.bases)")
           Text("ENEMIES \(host.hud.enemies)")
           Spacer()
@@ -33,6 +34,9 @@ struct ZoneContentView: View {
         Text("PAUSED").font(.system(size: 52, weight: .bold, design: .monospaced)).foregroundStyle(
           .white
         ).padding(24).background(.black.opacity(0.65))
+      } else if !host.hud.playerAlive {
+        Text("SHIP DESTROYED").font(.system(size: 36, weight: .bold, design: .monospaced))
+          .foregroundStyle(.white).padding(20).background(.black.opacity(0.55))
       }
     }
   }

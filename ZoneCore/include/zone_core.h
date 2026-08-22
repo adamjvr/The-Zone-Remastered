@@ -54,6 +54,9 @@ typedef struct ZoneHUDState {
     int32_t ammo;
     int32_t bases;
     int32_t enemies;
+    float speed;
+    float maximum_speed;
+    uint8_t player_alive;
     uint8_t paused;
 } ZoneHUDState;
 
@@ -90,6 +93,14 @@ int32_t zone_game_debug_find_nth_type(const ZoneGame *game, uint32_t fourcc, int
 ZoneDebugBodyState zone_game_debug_world_state(const ZoneGame *game, int32_t index);
 void zone_game_debug_set_world_state(ZoneGame *game, int32_t index,
                                      float x, float y, float vx, float vy, int32_t frame);
+float zone_game_player_max_speed(const ZoneGame *game);
+int32_t zone_game_active_projectiles(const ZoneGame *game);
+uint8_t zone_game_player_alive(const ZoneGame *game);
+void zone_game_debug_set_progression(ZoneGame *game, int32_t shields, int32_t ammo,
+                                     float maximum_speed, int32_t wave);
+int32_t zone_game_debug_spawn_world(ZoneGame *game, uint32_t fourcc,
+                                    float x, float y, float vx, float vy);
+void zone_game_debug_destroy_world(ZoneGame *game, int32_t index);
 
 #ifdef __cplusplus
 }

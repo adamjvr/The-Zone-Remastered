@@ -27,6 +27,117 @@ static void park_wave1_except(ZoneGame *g, int32_t keep_a, int32_t keep_b) {
     }
 }
 
+static void advance_ticks(ZoneGame *g, int ticks) {
+    for (int i = 0; i < ticks; ++i) zone_game_step(g, (ZoneInput){0});
+}
+
+static void test_recovered_progression_constants(void) {
+    assert(nearly(tz_initial_player_max_speed(), 25.0f));
+    assert(nearly(tz_velocity_module_apply(25.0f), 30.0f));
+    assert(nearly(tz_velocity_module_apply(49.0f), 50.0f));
+    assert(nearly(tz_velocity_module_apply(50.0f), 50.0f));
+    assert(tz_ammo_loader_apply(2) == 3);
+    assert(tz_ammo_loader_apply(10) == 10);
+    assert(tz_oscilloscope_apply(42) == 100);
+    assert(tz_oscilloscope_apply(100) == 100);
+
+    assert(tz_select_barrel_type(5, 0, 0, 0, false, 0) == TZ_TYPE_EQUI);
+    assert(tz_select_barrel_type(5, 0, 0, 90, false, 0) == TZ_TYPE_BONU);
+    assert(tz_select_barrel_type(12, 0, 0, 60, false, 0) == TZ_TYPE_GADG);
+    assert(tz_select_barrel_type(12, 0, 0, 60, true, 0) == TZ_TYPE_EQUI);
+}
+
+static void test_ammo_is_shot_capacity(void) {
+    ZoneGame *g = zone_game_create(0xA660u);
+    assert(g);
+    park_wave1_except(g, -1, -1);
+    zone_game_debug_set_heading(g, 0.0f);
+    assert(zone_game_hud(g).ammo == 2);
+
+    ZoneInput fire = {0};
+    fire.fire = 1;
+    zone_game_step(g, fire);
+    assert(zone_game_active_projectiles(g) == 1);
+    advance_ticks(g, 8);
+    zone_game_step(g, fire);
+    assert(zone_game_active_projectiles(g) == 2);
+    advance_ticks(g, 8);
+    zone_game_step(g, fire);
+    assert(zone_game_active_projectiles(g) == 2); /* original ammo capacity */
+    zone_game_destroy(g);
+}
+
+static void test_pickup_effects(void) {
+    ZoneGame *g = zone_game_create(0xC011EC7u);
+    assert(g);
+    park_wave1_except(g, -1, -1);
+    const float x = zone_game_player_x(g), y = zone_game_player_y(g);
+    zone_game_debug_set_progression(g, 42, 2, 25.0f, 1);
+
+    assert(zone_game_debug_spawn_world(g, TZ_TYPE_OSCI, x, y, 0, 0) >= 0);
+    zone_game_step(g, (ZoneInput){0});
+    assert(zone_game_hud(g).shields == 100);
+    assert(zone_game_count_type(g, TZ_TYPE_OSCI) == 0);
+
+    assert(zone_game_debug_spawn_world(g, TZ_TYPE_VELO, x, y, 0, 0) >= 0);
+    zone_game_step(g, (ZoneInput){0});
+    assert(nearly(zone_game_player_max_speed(g), 30.0f));
+    assert(zone_game_count_type(g, TZ_TYPE_VELO) == 0);
+
+    assert(zone_game_debug_spawn_world(g, TZ_TYPE_AMMO, x, y, 0, 0) >= 0);
+    zone_game_step(g, (ZoneInput){0});
+    assert(zone_game_hud(g).ammo == 3);
+    assert(zone_game_count_type(g, TZ_TYPE_AMMO) == 0);
+    zone_game_destroy(g);
+}
+
+static void test_asteroid_payload(void) {
+    ZoneGame *g = zone_game_create(0xA57E001u);
+    assert(g);
+    const int32_t asteroid = zone_game_debug_find_nth_type(g, TZ_TYPE_ASTE, 0);
+    assert(asteroid >= 0);
+    const int before_aste = zone_game_count_type(g, TZ_TYPE_ASTE);
+    zone_game_debug_destroy_world(g, asteroid);
+    assert(zone_game_count_type(g, TZ_TYPE_ASTE) == before_aste - 1);
+    assert(zone_game_count_type(g, TZ_TYPE_VELO) +
+           zone_game_count_type(g, TZ_TYPE_AMMO) == 1);
+    assert(zone_game_hud(g).score == 20);
+    zone_game_destroy(g);
+}
+
+static void test_big_rock_fragmentation(void) {
+    ZoneGame *g = zone_game_create(0xB16B00Bu);
+    assert(g);
+    park_wave1_except(g, -1, -1);
+    const int32_t rock = zone_game_debug_spawn_world(g, TZ_TYPE_ROCK,
+                                                      320.0f, 240.0f, 0.0f, 0.0f);
+    assert(rock >= 0);
+    zone_game_debug_destroy_world(g, rock);
+    const int stones = zone_game_count_type(g, TZ_TYPE_STON);
+    assert(stones >= 2 && stones <= 4);
+    assert(zone_game_count_type(g, TZ_TYPE_ROCK) == 0);
+    assert(zone_game_hud(g).score == 50);
+    zone_game_destroy(g);
+}
+
+static void test_player_death_respawn_skeleton(void) {
+    ZoneGame *g = zone_game_create(0xD1E5u);
+    assert(g);
+    park_wave1_except(g, 0, -1);
+    zone_game_debug_set_progression(g, 1, 2, 25.0f, 1);
+    zone_game_debug_set_player_state(g, 300.0f, 240.0f, 10.0f, 0.0f);
+    zone_game_debug_set_world_state(g, 0, 300.0f, 240.0f, 5.0f, 0.0f, 0);
+
+    zone_game_step(g, (ZoneInput){0});
+    assert(zone_game_player_alive(g) == 0);
+    assert(zone_game_hud(g).shields == 0);
+
+    advance_ticks(g, 120);
+    assert(zone_game_player_alive(g) == 1);
+    assert(zone_game_hud(g).shields == 100);
+    zone_game_destroy(g);
+}
+
 static void test_muzzle_table(void) {
     const TzMuzzleOffset f0 = tz_ship_muzzle_offset_frame48(0);
     const TzMuzzleOffset f12 = tz_ship_muzzle_offset_frame48(12);
@@ -136,9 +247,16 @@ static void test_world_body_exchange_latch(void) {
 int main(void) {
     test_muzzle_table();
     test_recovered_impact_damage();
+    test_recovered_progression_constants();
+    test_ammo_is_shot_capacity();
+    test_pickup_effects();
+    test_asteroid_payload();
+    test_big_rock_fragmentation();
+    test_player_death_respawn_skeleton();
 
     ZoneGame *g = zone_game_create(0x12345678u);
     assert(g);
+    assert(nearly(zone_game_player_max_speed(g), 25.0f));
     assert(zone_game_world_object_count(g) == 4);
     assert(zone_game_count_type(g, TZ_TYPE_ASTE) == 3);
     assert(zone_game_count_type(g, TZ_TYPE_MOTH) == 1);
@@ -181,5 +299,10 @@ int main(void) {
     puts("Player/object momentum exchange + contact latch: PASS");
     puts("Mother Base collision transfer: PASS");
     puts("Wave-1 world/body collision exchange: PASS");
+    puts("Recovered initial max speed / pickup progression: PASS");
+    puts("Ammunition concurrent-shot capacity: PASS");
+    puts("Asteroid VELO/AMMO payload consequence: PASS");
+    puts("Big Rock 2..4 fragment consequence: PASS");
+    puts("Player death/respawn lifecycle skeleton: PASS");
     return 0;
 }

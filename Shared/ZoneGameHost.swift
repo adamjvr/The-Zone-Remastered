@@ -8,6 +8,9 @@ struct ZoneHUDSnapshot {
   var ammo = 2
   var bases = 0
   var enemies = 0
+  var speed: Float = 0
+  var maximumSpeed: Float = 25
+  var playerAlive = true
   var paused = false
 }
 
@@ -45,7 +48,9 @@ final class ZoneGameHost: ObservableObject {
       DispatchQueue.main.async { [weak self] in
         self?.hud = ZoneHUDSnapshot(
           score: Int(h.score), shields: Int(h.shields), wave: Int(h.wave), ammo: Int(h.ammo),
-          bases: Int(h.bases), enemies: Int(h.enemies), paused: h.paused != 0)
+          bases: Int(h.bases), enemies: Int(h.enemies),
+          speed: h.speed, maximumSpeed: h.maximum_speed,
+          playerAlive: h.player_alive != 0, paused: h.paused != 0)
       }
     }
   }

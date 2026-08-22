@@ -15,11 +15,11 @@
 
 /* Recovered gameplay constants currently promoted into the playable core. */
 #define ZONE_CLASSIC_TURN_DEG 4.5f
-#define ZONE_CLASSIC_MAX_SPEED 12.0f
 #define ZONE_MOTION_X_SCALE 0.325f
 #define ZONE_MOTION_Y_SCALE 0.25f
 #define ZONE_PROJECTILE_SPEED 15.0f
 #define ZONE_FIRE_COOLDOWN_TICKS 8
+#define ZONE_RESPAWN_TICKS 120
 
 struct Projectile {
     uint8_t active;
@@ -67,7 +67,12 @@ struct ZoneGame {
     int score, shields, wave, ammo;
     int bases_remaining, enemies_remaining;
     float shield_strength;
+    float player_max_speed;
+    int equipment_upgrade_a;
+    int equipment_upgrade_b;
+    int respawn_ticks;
     uint8_t professional;
+    uint8_t player_alive;
     uint8_t paused;
 
     ZoneAudioEvent audio[ZONE_MAX_AUDIO_EVENTS];
@@ -101,6 +106,16 @@ static uint32_t rng_next(ZoneGame *g) {
 
 static float rng_unit(ZoneGame *g) {
     return (rng_next(g) & 0xFFFFFFu) / (float)0x1000000u;
+}
+
+static uint16_t rng_0_100(ZoneGame *g) {
+    return (uint16_t)(rng_next(g) % 101u);
+}
+
+static int active_projectile_count(const ZoneGame *g) {
+    int n = 0;
+    for (int i = 0; i < ZONE_PROJECTILE_CAP; ++i) n += !!g->projectiles[i].active;
+    return n;
 }
 
 static float wrapf(float v, float max) {
@@ -161,6 +176,17 @@ static int is_physical_world_type(uint32_t type) {
     }
 }
 
+static int is_pickup_type(uint32_t type) {
+    return type == TZ_TYPE_OSCI || type == TZ_TYPE_VELO || type == TZ_TYPE_AMMO ||
+           type == TZ_TYPE_BONU || type == TZ_TYPE_EQUI || type == TZ_TYPE_GADG;
+}
+
+static int is_enemy_type(uint32_t type) {
+    return type == TZ_TYPE_RAID || type == TZ_TYPE_SEEK || type == TZ_TYPE_BEE ||
+           type == TZ_TYPE_ROTO || type == TZ_TYPE_SWAR || type == TZ_TYPE_MOTO ||
+           type == TZ_TYPE_BLOO;
+}
+
 static int is_wave1_world_exchange_type(uint32_t type) {
     /* Keep world/world promotion deliberately narrow. These are the body
        families whose Wave-1 exchange paths have been traced through 0x181A4.
@@ -205,6 +231,12 @@ static int object_visual_spec(uint32_t type, int *base, int *frames, int *side) 
         case TZ_TYPE_RAID: *base = 4100;  *frames = 24; *side = 32; return 1;
         case TZ_TYPE_SEEK: *base = 7000;  *frames = 24; *side = 32; return 1;
         case TZ_TYPE_ROTO: *base = 6000;  *frames = 24; *side = 32; return 1;
+        case TZ_TYPE_OSCI: *base = 800;    *frames = 30; *side = 24; return 1;
+        case TZ_TYPE_VELO: *base = 2100;   *frames = 24; *side = 24; return 1;
+        case TZ_TYPE_AMMO: *base = 2000;   *frames = 32; *side = 24; return 1;
+        case TZ_TYPE_BONU: *base = 1300;   *frames = 30; *side = 16; return 1;
+        case TZ_TYPE_EQUI: *base = 1400;   *frames = 30; *side = 16; return 1;
+        case TZ_TYPE_GADG: *base = 18000;  *frames = 30; *side = 16; return 1;
         default: return 0;
     }
 }
@@ -228,6 +260,7 @@ static struct WorldObject *spawn_world_object(ZoneGame *g, uint32_t type) {
     int base = 0, frames = 0, side = 0;
     if (!object_visual_spec(type, &base, &frames, &side)) return NULL;
 
+    clear_world_contacts_for_slot(g, slot);
     struct WorldObject *o = &g->world[slot];
     memset(o, 0, sizeof(*o));
     o->active = 1;
@@ -251,6 +284,18 @@ static struct WorldObject *spawn_world_object(ZoneGame *g, uint32_t type) {
     return o;
 }
 
+static struct WorldObject *spawn_world_object_at(ZoneGame *g, uint32_t type,
+                                                  float x, float y,
+                                                  float vx, float vy) {
+    struct WorldObject *o = spawn_world_object(g, type);
+    if (!o) return NULL;
+    o->x = wrapf(x, ZONE_LOGICAL_WIDTH);
+    o->y = wrapf(y, ZONE_LOGICAL_HEIGHT);
+    o->vx = vx;
+    o->vy = vy;
+    return o;
+}
+
 static void populate_wave_1(ZoneGame *g) {
     memset(g->world, 0, sizeof(g->world));
     const TzWavePreset *preset = tz_wave_preset(g->professional != 0, 1);
@@ -265,16 +310,8 @@ static void populate_wave_1(ZoneGame *g) {
     }
 }
 
-static void spawn_explosion(ZoneGame *g, float x, float y, int destroyed_side) {
-    int base = 1500, frames = 20, side = 32;
-    switch (destroyed_side) {
-        case 16: base = 700;   frames = 11; side = 16; break;
-        case 24: base = 3000;  frames = 11; side = 24; break;
-        case 32: base = 600;   frames = 11; side = 32; break;
-        case 48: base = 20000; frames = 11; side = 48; break;
-        default: break;
-    }
-
+static void spawn_explosion_bank(ZoneGame *g, float x, float y,
+                                 int base, int frames, int side) {
     for (int i = 0; i < ZONE_EXPLOSION_CAP; ++i) {
         if (!g->explosions[i].active) {
             g->explosions[i] = (struct Explosion){1, x, y, 0, base, frames, side};
@@ -284,26 +321,162 @@ static void spawn_explosion(ZoneGame *g, float x, float y, int destroyed_side) {
     }
 }
 
+static void spawn_explosion(ZoneGame *g, float x, float y, int destroyed_side) {
+    int base = 1500, frames = 20, side = 32;
+    switch (destroyed_side) {
+        case 16: base = 700;   frames = 11; side = 16; break;
+        case 24: base = 3000;  frames = 11; side = 24; break;
+        case 32: base = 600;   frames = 11; side = 32; break;
+        case 48: base = 20000; frames = 11; side = 48; break;
+        default: break;
+    }
+    spawn_explosion_bank(g, x, y, base, frames, side);
+}
+
+static void spawn_ship_explosion(ZoneGame *g, float x, float y) {
+    /* The ship/mine special case in 0x107B4 uses the 20-frame 1500 bank,
+       not the generic 32-pixel explosion bank. */
+    spawn_explosion_bank(g, x, y, 1500, 20, 32);
+}
+
+static uint32_t select_asteroid_payload(ZoneGame *g) {
+    /* PPC 0x195F4: one payload per destroyed medium asteroid. A low random
+       bit chooses whether velocity or ammunition gets first priority. */
+    const int prefer_velocity = (rng_next(g) & 1u) == 0u;
+    if (prefer_velocity) {
+        if (g->player_max_speed < 50.0f) return TZ_TYPE_VELO;
+        if (g->ammo < 10) return TZ_TYPE_AMMO;
+    } else {
+        if (g->ammo < 10) return TZ_TYPE_AMMO;
+        if (g->player_max_speed < 50.0f) return TZ_TYPE_VELO;
+    }
+
+    return tz_select_barrel_type((unsigned)g->wave,
+                                 (int16_t)g->equipment_upgrade_a,
+                                 (int16_t)g->equipment_upgrade_b,
+                                 rng_0_100(g), false,
+                                 (uint16_t)(rng_next(g) & 1u));
+}
+
+static void spawn_asteroid_payload(ZoneGame *g, const struct WorldObject *o) {
+    const uint32_t type = select_asteroid_payload(g);
+    (void)spawn_world_object_at(g, type, o->x + 4.0f, o->y + 4.0f, 0.0f, 0.0f);
+}
+
+static void fragment_big_rock(ZoneGame *g, const struct WorldObject *o) {
+    /* PPC 0x19718 creates 2..4 children. The object-class consequence is
+       recovered; exact per-child velocity/offset cases are still being lifted,
+       so the angular spread below is isolated as the remaining approximation. */
+    static const float headings[4] = {0.0f, 45.0f, 315.0f, 225.0f};
+    const int count = 2 + (int)(rng_next(g) % 3u);
+    ensure_trig_tables();
+
+    for (int i = 0; i < count; ++i) {
+        float dx = 0.0f, dy = 0.0f;
+        tz_screen_direction_from_heading(headings[i], g_neg_sin_360, g_cos_360, &dx, &dy);
+        const float speed = 4.0f + (float)(rng_next(g) % 9u); /* recovered 4..12 range */
+        (void)spawn_world_object_at(g, TZ_TYPE_STON,
+                                    o->x + dx * 24.0f, o->y + dy * 24.0f,
+                                    dx * speed, dy * speed);
+    }
+
+    /* Hidden enemy path in 0x19718: signed raw Random >=22000, wave >2.
+       At wave >=15, a second 0..100 draw <=40 selects Raider; otherwise Seeker. */
+    const int16_t raw = (int16_t)(rng_next(g) & 0xFFFFu);
+    if (g->wave > 2 && raw >= 22000) {
+        uint32_t enemy = TZ_TYPE_SEEK;
+        if (g->wave >= 15 && rng_0_100(g) <= 40) enemy = TZ_TYPE_RAID;
+        struct WorldObject *child = spawn_world_object_at(g, enemy, o->x, o->y, 0.0f, 0.0f);
+        if (child) ++g->enemies_remaining;
+    }
+}
+
 static void destroy_world_object(ZoneGame *g, struct WorldObject *o) {
     if (!o || !o->active) return;
     const int slot = (int)(o - g->world);
-    const TzKillAward *award = tz_kill_award_for_type(o->type);
+    const uint32_t destroyed_type = o->type;
+    const float x = o->x;
+    const float y = o->y;
+    const int side = o->side;
+
+    /* Destruction consequences are generated before the source slot is freed,
+       matching the original transform/spawn ordering closely enough that
+       object-capacity behavior remains deterministic. */
+    if (destroyed_type == TZ_TYPE_ASTE) {
+        spawn_asteroid_payload(g, o);
+    } else if (destroyed_type == TZ_TYPE_ROCK) {
+        fragment_big_rock(g, o);
+    }
+
+    const TzKillAward *award = tz_kill_award_for_type(destroyed_type);
     if (award) g->score += award->score;
-    if (o->type == TZ_TYPE_MOTH || o->type == TZ_TYPE_BASE) {
+    if (destroyed_type == TZ_TYPE_MOTH || destroyed_type == TZ_TYPE_BASE) {
         if (g->bases_remaining > 0) --g->bases_remaining;
-    } else if (o->type == TZ_TYPE_RAID || o->type == TZ_TYPE_SEEK ||
-               o->type == TZ_TYPE_BEE || o->type == TZ_TYPE_ROTO ||
-               o->type == TZ_TYPE_SWAR || o->type == TZ_TYPE_MOTO ||
-               o->type == TZ_TYPE_BLOO) {
+    } else if (is_enemy_type(destroyed_type)) {
         if (g->enemies_remaining > 0) --g->enemies_remaining;
     }
-    spawn_explosion(g, o->x, o->y, o->side);
+
+    spawn_explosion(g, x, y, side);
     o->active = 0;
     clear_world_contacts_for_slot(g, slot);
 }
 
-static void spawn_projectile(ZoneGame *g) {
+static void begin_player_death(ZoneGame *g) {
+    if (!g->player_alive) return;
+    g->player_alive = 0;
+    g->shields = 0;
+    g->respawn_ticks = ZONE_RESPAWN_TICKS;
+    g->player_vx = 0.0f;
+    g->player_vy = 0.0f;
+    spawn_ship_explosion(g, g->player_x, g->player_y);
+}
+
+static void respawn_player(ZoneGame *g) {
+    /* 0x1663C is only partially lifted. The reset semantics (ship object is
+       reconfigured and shields restored) are known; exact historical spawn
+       placement/timing remains a compatibility item. Keep those two values
+       centralized here until the final lift replaces them. */
+    g->player_x = ZONE_LOGICAL_WIDTH * 0.33f;
+    g->player_y = ZONE_LOGICAL_HEIGHT * 0.5f;
+    g->player_vx = 0.0f;
+    g->player_vy = 0.0f;
+    g->heading = 0.0f;
+    g->shields = 100;
+    g->player_alive = 1;
+    g->respawn_ticks = 0;
+    for (int i = 0; i < ZONE_WORLD_CAP; ++i) g->world[i].player_contact = 0;
+}
+
+static void collect_pickup(ZoneGame *g, struct WorldObject *o) {
+    if (!o || !o->active || !is_pickup_type(o->type)) return;
+    const int slot = (int)(o - g->world);
+    switch (o->type) {
+        case TZ_TYPE_OSCI:
+            g->shields = tz_oscilloscope_apply((int16_t)g->shields);
+            break;
+        case TZ_TYPE_VELO:
+            g->player_max_speed = tz_velocity_module_apply(g->player_max_speed);
+            break;
+        case TZ_TYPE_AMMO:
+            g->ammo = tz_ammo_loader_apply((int16_t)g->ammo);
+            break;
+        case TZ_TYPE_BONU:
+        case TZ_TYPE_EQUI:
+        case TZ_TYPE_GADG:
+            /* Collection/removal is exact. Their individual upgrade effects
+               remain outside 0.5 until the corresponding 0x17xxx branches are
+               fully lifted; no invented effect is applied here. */
+            break;
+        default:
+            return;
+    }
+    o->active = 0;
+    clear_world_contacts_for_slot(g, slot);
+}
+
+static int spawn_projectile(ZoneGame *g) {
     ensure_trig_tables();
+    if (!g->player_alive || active_projectile_count(g) >= g->ammo) return 0;
     for (int i = 0; i < ZONE_PROJECTILE_CAP; ++i) {
         if (!g->projectiles[i].active) {
             const int frame = current_ship_frame(g);
@@ -320,9 +493,10 @@ static void spawn_projectile(ZoneGame *g) {
             p->life = 90;
             p->sprite = ZONE_SHOT_BASE;
             audio_push(g, ZONE_AUDIO_FIRE, p->x, p->y);
-            return;
+            return 1;
         }
     }
+    return 0;
 }
 
 void zone_game_reset(ZoneGame *g, uint32_t seed) {
@@ -337,7 +511,9 @@ void zone_game_reset(ZoneGame *g, uint32_t seed) {
     g->wave = 1;
     g->ammo = 2;
     g->shield_strength = 1.0f;
+    g->player_max_speed = tz_initial_player_max_speed();
     g->professional = 1;
+    g->player_alive = 1;
     populate_wave_1(g);
 }
 
@@ -358,33 +534,37 @@ void zone_game_step(ZoneGame *g, ZoneInput in) {
     g->pause_latch = in.pause;
     if (g->paused) return;
 
-    const float turn = in.turn < -0.25f ? -1.0f : (in.turn > 0.25f ? 1.0f : 0.0f);
-    g->heading = tz_wrap_heading(g->heading + turn * ZONE_CLASSIC_TURN_DEG);
+    if (g->player_alive) {
+        const float turn = in.turn < -0.25f ? -1.0f : (in.turn > 0.25f ? 1.0f : 0.0f);
+        g->heading = tz_wrap_heading(g->heading + turn * ZONE_CLASSIC_TURN_DEG);
 
-    if (in.thrust > 0.5f) {
-        /* Recovered PPC uses classic Mac vertical/horizontal component order.
-           ZoneCore exposes modern screen X/Y, so swap at the boundary. */
-        float vertical = g->player_vy;
-        float horizontal = g->player_vx;
-        if (tz_apply_player_thrust(&vertical, &horizontal,
-                                   g->heading, ZONE_CLASSIC_MAX_SPEED,
-                                   g_neg_sin_360, g_cos_360)) {
-            g->player_vx = horizontal;
-            g->player_vy = vertical;
+        if (in.thrust > 0.5f) {
+            /* Recovered PPC uses classic Mac vertical/horizontal component order.
+               ZoneCore exposes modern screen X/Y, so swap at the boundary. */
+            float vertical = g->player_vy;
+            float horizontal = g->player_vx;
+            if (tz_apply_player_thrust(&vertical, &horizontal,
+                                       g->heading, g->player_max_speed,
+                                       g_neg_sin_360, g_cos_360)) {
+                g->player_vx = horizontal;
+                g->player_vy = vertical;
+            }
         }
-    }
 
-    g->player_x = wrapf(g->player_x + g->player_vx * ZONE_MOTION_X_SCALE,
-                        ZONE_LOGICAL_WIDTH);
-    g->player_y = wrapf(g->player_y + g->player_vy * ZONE_MOTION_Y_SCALE,
-                        ZONE_LOGICAL_HEIGHT);
+        g->player_x = wrapf(g->player_x + g->player_vx * ZONE_MOTION_X_SCALE,
+                            ZONE_LOGICAL_WIDTH);
+        g->player_y = wrapf(g->player_y + g->player_vy * ZONE_MOTION_Y_SCALE,
+                            ZONE_LOGICAL_HEIGHT);
 
-    if (g->fire_cooldown > 0) --g->fire_cooldown;
-    if (in.fire && g->fire_cooldown == 0) {
-        spawn_projectile(g);
-        g->fire_cooldown = ZONE_FIRE_COOLDOWN_TICKS;
+        if (g->fire_cooldown > 0) --g->fire_cooldown;
+        if (in.fire && g->fire_cooldown == 0 && spawn_projectile(g)) {
+            g->fire_cooldown = ZONE_FIRE_COOLDOWN_TICKS;
+        }
+        g->fire_latch = in.fire;
+    } else {
+        if (g->respawn_ticks > 0) --g->respawn_ticks;
+        if (g->respawn_ticks == 0) respawn_player(g);
     }
-    g->fire_latch = in.fire;
 
     for (int i = 0; i < ZONE_WORLD_CAP; ++i) {
         struct WorldObject *o = &g->world[i];
@@ -418,13 +598,27 @@ void zone_game_step(ZoneGame *g, ZoneInput in) {
         for (int j = 0; j < ZONE_WORLD_CAP && p->active; ++j) {
             struct WorldObject *o = &g->world[j];
             if (!o->active) continue;
+            const int threshold = destruction_threshold(g, o->type);
+            if (threshold <= 0) continue; /* collectible/non-combat object */
             if (!exact_overlap_ids(p->sprite, p->x, p->y,
                                    o->sprite_base + o->frame, o->x, o->y)) continue;
 
             p->active = 0;
             o->damage += tz_shot_damage_from_upgrade(0);
-            const int threshold = destruction_threshold(g, o->type);
-            if (threshold > 0 && o->damage >= threshold) destroy_world_object(g, o);
+            if (o->damage >= threshold) destroy_world_object(g, o);
+        }
+    }
+
+    /* Collectible collision branch (PPC 0x177A8). These objects do not
+       participate in the physical momentum-exchange matrix. */
+    if (g->player_alive) {
+        for (int i = 0; i < ZONE_WORLD_CAP; ++i) {
+            struct WorldObject *o = &g->world[i];
+            if (!o->active || !is_pickup_type(o->type)) continue;
+            if (exact_overlap_ids(current_ship_sprite(g), g->player_x, g->player_y,
+                                  o->sprite_base + o->frame, o->x, o->y)) {
+                collect_pickup(g, o);
+            }
         }
     }
 
@@ -432,7 +626,7 @@ void zone_game_step(ZoneGame *g, ZoneInput in) {
        PPC 0x174E8 is the dedicated Mother Base/HQ path.  Contact is latched
        until separation so a single physical impact cannot drain shields once
        per rendered frame or swap the same velocities back and forth. */
-    for (int i = 0; i < ZONE_WORLD_CAP; ++i) {
+    for (int i = 0; g->player_alive && i < ZONE_WORLD_CAP; ++i) {
         struct WorldObject *o = &g->world[i];
         if (!o->active || !is_physical_world_type(o->type)) continue;
 
@@ -461,7 +655,7 @@ void zone_game_step(ZoneGame *g, ZoneInput in) {
 
         if (damage > 0) {
             g->shields -= damage;
-            if (g->shields < 0) g->shields = 0;
+            if (g->shields <= 0) begin_player_death(g);
         }
         audio_push(g, ZONE_AUDIO_COLLISION, g->player_x, g->player_y);
     }
@@ -505,7 +699,7 @@ void zone_game_step(ZoneGame *g, ZoneInput in) {
 
 int32_t zone_game_render_item_count(const ZoneGame *g) {
     if (!g) return 0;
-    int n = 1;
+    int n = g->player_alive ? 1 : 0;
     for (int i = 0; i < ZONE_WORLD_CAP; ++i) n += !!g->world[i].active;
     for (int i = 0; i < ZONE_PROJECTILE_CAP; ++i) n += !!g->projectiles[i].active;
     for (int i = 0; i < ZONE_EXPLOSION_CAP; ++i) n += !!g->explosions[i].active;
@@ -517,7 +711,7 @@ ZoneRenderItem zone_game_render_item_at(const ZoneGame *g, int32_t index) {
     if (!g || index < 0) return z;
     int n = 0;
 
-    if (index == n++) {
+    if (g->player_alive && index == n++) {
         return (ZoneRenderItem){current_ship_sprite(g), g->player_x, g->player_y, 32, 1};
     }
     for (int i = 0; i < ZONE_WORLD_CAP; ++i) {
@@ -548,7 +742,9 @@ ZoneHUDState zone_game_hud(const ZoneGame *g) {
     if (!g) return (ZoneHUDState){0};
     return (ZoneHUDState){
         g->score, g->shields, g->wave, g->ammo,
-        g->bases_remaining, g->enemies_remaining, g->paused
+        g->bases_remaining, g->enemies_remaining,
+        speed2d(g->player_vx, g->player_vy), g->player_max_speed,
+        g->player_alive, g->paused
     };
 }
 
@@ -590,7 +786,7 @@ void zone_game_debug_set_heading(ZoneGame *g, float heading_degrees) {
 
 ZoneDebugBodyState zone_game_debug_player_state(const ZoneGame *g) {
     if (!g) return (ZoneDebugBodyState){0};
-    return (ZoneDebugBodyState){1, TZ_TYPE_SHIP, g->player_x, g->player_y,
+    return (ZoneDebugBodyState){g->player_alive, TZ_TYPE_SHIP, g->player_x, g->player_y,
                                 g->player_vx, g->player_vy, current_ship_frame(g)};
 }
 
@@ -633,4 +829,41 @@ void zone_game_debug_set_world_state(ZoneGame *g, int32_t index,
     }
     o->player_contact = 0;
     clear_world_contacts_for_slot(g, index);
+}
+
+
+float zone_game_player_max_speed(const ZoneGame *g) {
+    return g ? g->player_max_speed : 0.0f;
+}
+
+int32_t zone_game_active_projectiles(const ZoneGame *g) {
+    return g ? active_projectile_count(g) : 0;
+}
+
+uint8_t zone_game_player_alive(const ZoneGame *g) {
+    return g ? g->player_alive : 0;
+}
+
+void zone_game_debug_set_progression(ZoneGame *g, int32_t shields, int32_t ammo,
+                                     float maximum_speed, int32_t wave) {
+    if (!g) return;
+    g->shields = shields;
+    g->ammo = ammo < 0 ? 0 : (ammo > 10 ? 10 : ammo);
+    g->player_max_speed = maximum_speed;
+    g->wave = wave < 1 ? 1 : wave;
+}
+
+int32_t zone_game_debug_spawn_world(ZoneGame *g, uint32_t fourcc,
+                                    float x, float y, float vx, float vy) {
+    if (!g) return -1;
+    struct WorldObject *o = spawn_world_object_at(g, fourcc, x, y, vx, vy);
+    if (!o) return -1;
+    if (fourcc == TZ_TYPE_MOTH || fourcc == TZ_TYPE_BASE) ++g->bases_remaining;
+    else if (is_enemy_type(fourcc)) ++g->enemies_remaining;
+    return (int32_t)(o - g->world);
+}
+
+void zone_game_debug_destroy_world(ZoneGame *g, int32_t index) {
+    if (!g || index < 0 || index >= ZONE_WORLD_CAP || !g->world[index].active) return;
+    destroy_world_object(g, &g->world[index]);
 }

@@ -41,3 +41,67 @@ const TzKillAward *tz_kill_award_for_type(uint32_t type) {
     }
     return 0;
 }
+
+
+/* Progression constants and pickup effects recovered from the native PPC
+ * collision/pickup dispatcher:
+ *   new game 0x128F0: maximum speed = 25.0, ammo capacity = 2
+ *   velo     0x17908: +5.0 maximum speed while below 50.0
+ *   ammo     0x178E0: +1 simultaneous shot capacity while below 10
+ *   osci     0x178B8: restore shields to 100 if below 100
+ */
+float tz_initial_player_max_speed(void) {
+    return 25.0f;
+}
+
+float tz_velocity_module_apply(float maximum_speed) {
+    if (maximum_speed < 50.0f) {
+        maximum_speed += 5.0f;
+        if (maximum_speed > 50.0f) maximum_speed = 50.0f;
+    }
+    return maximum_speed;
+}
+
+int16_t tz_ammo_loader_apply(int16_t ammo_capacity) {
+    if (ammo_capacity < 10) ++ammo_capacity;
+    return ammo_capacity;
+}
+
+int16_t tz_oscilloscope_apply(int16_t shields) {
+    return shields < 100 ? 100 : shields;
+}
+
+/* Barrel selector at PPC 0x1A3D8.  The two counters are the upgrade-state
+ * values tested by the original routine.  rock_special models the Big Rock
+ * callsite: if the selector chooses a gadget there, one additional random bit
+ * converts that result to a bonus/equipment barrel.
+ */
+uint32_t tz_select_barrel_type(unsigned wave, int16_t upgrade_a, int16_t upgrade_b,
+                               uint16_t random_0_100, bool rock_special,
+                               uint16_t random_bit) {
+    const bool low_upgrades = upgrade_a < 2 && upgrade_b < 2;
+    uint32_t selected = TZ_TYPE_BONU;
+
+    if (wave < 10) {
+        if (low_upgrades) {
+            selected = random_0_100 < 70 ? TZ_TYPE_EQUI : TZ_TYPE_BONU;
+        } else {
+            selected = random_0_100 < 60 ? TZ_TYPE_BONU : TZ_TYPE_EQUI;
+        }
+    } else {
+        if (low_upgrades) {
+            if (random_0_100 < 50) selected = TZ_TYPE_EQUI;
+            else if (random_0_100 < 80) selected = TZ_TYPE_GADG;
+            else selected = TZ_TYPE_BONU;
+        } else {
+            if (random_0_100 < 35) selected = TZ_TYPE_EQUI;
+            else if (random_0_100 < 70) selected = TZ_TYPE_BONU;
+            else selected = TZ_TYPE_GADG;
+        }
+    }
+
+    if (rock_special && selected == TZ_TYPE_GADG) {
+        selected = (random_bit & 1u) ? TZ_TYPE_BONU : TZ_TYPE_EQUI;
+    }
+    return selected;
+}

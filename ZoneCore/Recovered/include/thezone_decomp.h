@@ -103,4 +103,13 @@ int16_t tz_player_impact_damage(uint32_t collider_type,
                                 float shield_strength);
 int16_t tz_player_base_impact_damage(float ship_speed_before, float shield_strength);
 
+/* Recovered progression / pickup semantics. */
+float tz_initial_player_max_speed(void);
+float tz_velocity_module_apply(float maximum_speed);
+int16_t tz_ammo_loader_apply(int16_t ammo_capacity);
+int16_t tz_oscilloscope_apply(int16_t shields);
+uint32_t tz_select_barrel_type(unsigned wave, int16_t upgrade_a, int16_t upgrade_b,
+                               uint16_t random_0_100, bool rock_special,
+                               uint16_t random_bit);
+
 #endif
