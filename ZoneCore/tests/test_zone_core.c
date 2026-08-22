@@ -159,6 +159,8 @@ static void test_recovered_enemy_behavior_constants(void) {
     assert(tz_mother_defender_batch_count(true, 3) == 5);
     assert(tz_mother_defender_batch_count(false, 0) == 1);
     assert(tz_mother_defender_batch_count(false, 2) == 3);
+    assert(tz_hq_defender_active_cap(true) == 4);
+    assert(tz_hq_defender_active_cap(false) == 2);
 }
 
 static void test_wave1_mother_defense_and_bee_semantics(void) {
@@ -364,6 +366,87 @@ static void test_fixed_wave_lifecycle_1_to_2(void) {
     zone_game_destroy(g);
 }
 
+
+static void test_mother_base_long_damage_chain_and_feedback(void) {
+    ZoneGame *g = zone_game_create(0x19C9Cu);
+    assert(g);
+    const int32_t moth = zone_game_debug_find_nth_type(g, TZ_TYPE_MOTH, 0);
+    assert(moth >= 0);
+
+    /* Saturate the recovered Professional defender cap first. This recreates
+       the situation where later valid hits used to look ineffective because
+       there was no further spawn reaction or hit feedback. */
+    assert(zone_game_debug_trigger_mother_defense(g, moth, 15000, 3) == 5);
+    assert(zone_game_debug_world_defender_count(g, moth) == 5);
+
+    ZoneAudioEvent audio[ZONE_MAX_AUDIO_EVENTS];
+    (void)zone_game_drain_audio(g, audio, ZONE_MAX_AUDIO_EVENTS);
+
+    assert(zone_game_debug_apply_player_shot(g, moth) == 0);
+    assert(zone_game_debug_world_damage(g, moth) == 1);
+
+    const ZoneDebugBodyState state = zone_game_debug_world_state(g, moth);
+    const ZoneRenderItem flashed = find_sprite(g, 9000 + state.frame);
+    assert(flashed.sprite_id == 9000 + state.frame);
+    assert(flashed.flash > 0.5f);
+
+    const int32_t n = zone_game_drain_audio(g, audio, ZONE_MAX_AUDIO_EVENTS);
+    int saw_hit = 0;
+    for (int32_t i = 0; i < n; ++i) saw_hit |= audio[i].type == ZONE_AUDIO_HIT;
+    assert(saw_hit);
+
+    /* Professional Mother Base threshold is 40. Defender cap must not suppress
+       damage accumulation: hits 2..39 remain nonlethal, hit 40 destroys it. */
+    for (int hit = 2; hit <= 39; ++hit) {
+        assert(zone_game_debug_apply_player_shot(g, moth) == 0);
+        assert(zone_game_debug_world_damage(g, moth) == hit);
+        (void)zone_game_drain_audio(g, audio, ZONE_MAX_AUDIO_EVENTS);
+    }
+    assert(zone_game_count_type(g, TZ_TYPE_MOTH) == 1);
+    assert(zone_game_debug_apply_player_shot(g, moth) == 1);
+    assert(zone_game_count_type(g, TZ_TYPE_MOTH) == 0);
+    assert(zone_game_hud(g).bases == 0);
+    assert(zone_game_hud(g).enemies == 5); /* linked defenders survive parent */
+    zone_game_destroy(g);
+}
+
+static void test_hq_nonlethal_defender_reaction(void) {
+    ZoneGame *g = zone_game_create(0x16390u);
+    assert(g);
+    park_wave1_except(g, -1, -1);
+
+    const int32_t hq = zone_game_debug_spawn_world(
+        g, TZ_TYPE_BASE, 320.0f, 240.0f, 0.0f, 0.0f);
+    assert(hq >= 0);
+
+    /* A debug-created HQ has no assigned subtype, so portable fallback is the
+       recovered normal HQ defender family: Off-Shore ('moto'). */
+    assert(zone_game_debug_trigger_hq_defense(g, hq) == 4);
+    assert(zone_game_debug_world_defender_count(g, hq) == 4);
+    assert(zone_game_count_type(g, TZ_TYPE_MOTO) == 4);
+    assert(zone_game_debug_trigger_hq_defense(g, hq) == 0);
+
+    const int32_t first = zone_game_debug_find_nth_type(g, TZ_TYPE_MOTO, 0);
+    assert(first >= 0);
+    zone_game_debug_destroy_world(g, first);
+    assert(zone_game_debug_world_defender_count(g, hq) == 3);
+    assert(zone_game_debug_trigger_hq_defense(g, hq) == 1);
+    assert(zone_game_debug_world_defender_count(g, hq) == 4);
+
+    /* The production nonlethal-shot consequence also calls 0x16390. */
+    for (int i = 0; i < 4; ++i) {
+        const int32_t moto = zone_game_debug_find_nth_type(g, TZ_TYPE_MOTO, 0);
+        assert(moto >= 0);
+        zone_game_debug_destroy_world(g, moto);
+    }
+    assert(zone_game_debug_world_defender_count(g, hq) == 0);
+    assert(zone_game_debug_apply_player_shot(g, hq) == 0);
+    assert(zone_game_debug_world_damage(g, hq) == 1);
+    assert(zone_game_debug_world_defender_count(g, hq) == 4);
+    zone_game_destroy(g);
+}
+
+
 static void test_mother_base_frame_is_stable(void) {
     ZoneGame *g = zone_game_create(0x14C70u);
     assert(g);
@@ -498,6 +581,8 @@ int main(void) {
     test_wave1_mother_defense_and_bee_semantics();
     test_two_base_bee_request_linkage();
     test_empire_fighter_live_chase();
+    test_mother_base_long_damage_chain_and_feedback();
+    test_hq_nonlethal_defender_reaction();
     test_recovered_impact_damage();
     test_recovered_progression_constants();
     test_ammo_is_shot_capacity();
@@ -566,5 +651,7 @@ int main(void) {
     puts("Seeker 200-unit near/far speed switch: PASS");
     puts("Fixed Wave 1 -> Wave 2 lifecycle: PASS");
     puts("Mother Base/HQ sprite-frame stability regression: PASS");
+    puts("Mother Base 40-hit damage continuity + hit feedback: PASS");
+    puts("Recovered Headquarters nonlethal defender response: PASS");
     return 0;
 }

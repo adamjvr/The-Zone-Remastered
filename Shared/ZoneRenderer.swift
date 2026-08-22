@@ -134,10 +134,13 @@ final class ZoneRenderer: NSObject, MTKViewDelegate {
     x: Float,
     y: Float,
     side: Float,
-    texture: MTLTexture
+    texture: MTLTexture,
+    flash: Float = 0
   ) {
     let vertices = vertices(x: x, y: y, side: side)
     encoder.setFragmentTexture(texture, index: 0)
+    var flashAmount = flash
+    encoder.setFragmentBytes(&flashAmount, length: MemoryLayout<Float>.size, index: 0)
     vertices.withUnsafeBufferPointer { pointer in
       encoder.setVertexBytes(
         pointer.baseAddress!,
@@ -209,7 +212,8 @@ final class ZoneRenderer: NSObject, MTKViewDelegate {
             x: item.x,
             y: item.y,
             side: item.side,
-            texture: texture(item.sprite_id)
+            texture: texture(item.sprite_id),
+            flash: item.flash
           )
         }
       }

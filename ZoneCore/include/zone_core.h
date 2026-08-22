@@ -32,13 +32,15 @@ typedef struct ZoneRenderItem {
     float y;
     float side;
     float alpha;
+    float flash;          /* 0..1 one-frame impact emphasis */
 } ZoneRenderItem;
 
 typedef enum ZoneAudioEventType {
     ZONE_AUDIO_NONE = 0,
     ZONE_AUDIO_FIRE = 1,
     ZONE_AUDIO_EXPLOSION = 2,
-    ZONE_AUDIO_COLLISION = 3
+    ZONE_AUDIO_COLLISION = 3,
+    ZONE_AUDIO_HIT = 4
 } ZoneAudioEventType;
 
 typedef struct ZoneAudioEvent {
@@ -109,6 +111,9 @@ int32_t zone_game_debug_trigger_mother_defense(ZoneGame *game, int32_t index,
                                                int16_t gate_word, uint16_t batch_word);
 int32_t zone_game_debug_request_bee(ZoneGame *game, int32_t requester_index);
 int32_t zone_game_debug_enemy_fire(ZoneGame *game, int32_t source_index);
+int32_t zone_game_debug_world_damage(const ZoneGame *game, int32_t index);
+int32_t zone_game_debug_apply_player_shot(ZoneGame *game, int32_t index);
+int32_t zone_game_debug_trigger_hq_defense(ZoneGame *game, int32_t index);
 
 #ifdef __cplusplus
 }

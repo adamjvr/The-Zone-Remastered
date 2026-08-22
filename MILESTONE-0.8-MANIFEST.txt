@@ -1,0 +1,25 @@
+The Zone Remastered — Milestone 0.8 overlay
+
+Purpose:
+- fix the 0.7 Mother Base 'stops taking damage' feedback regression
+- preserve cumulative damage through the recovered 40-hit Professional threshold
+- restore the recovered one-draw nonlethal Mother/HQ damage flag + hit event
+- promote Headquarters PPC 0x16390 linked-defender response
+- keep the existing 0.7 roadmap and native target architecture intact
+
+Changed/new files:
+- README.md
+- Docs/ROADMAP.md
+- Docs/MILESTONE-0.8.md
+- Shared/ZoneAudioEngine.swift
+- Shared/ZoneRenderer.swift
+- Shared/ZoneShaders.metal
+- ZoneCore/include/zone_core.h
+- ZoneCore/src/zone_core.c
+- ZoneCore/tests/test_zone_core.c
+- ZoneCore/Recovered/include/thezone_decomp.h
+- ZoneCore/Recovered/src/ai.c
+- Tools/verify-milestone-0.8.command
+- APPLY-MILESTONE-0.8.command
+
+No Xcode project, signing, deployment-target, or native-target setting is changed.

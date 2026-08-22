@@ -2,7 +2,7 @@
   <img src="Docs/images/TheZoneRemastered-Ship.png" alt="The Zone Remastered ship" width="720">
 </p>
 
-# The Zone Remastered — Engineering Milestone 0.7
+# The Zone Remastered — Engineering Milestone 0.8
 
 Native Apple remaster built from the reverse-engineered *TheZone* 1.5.1 game logic and assets.
 
@@ -11,6 +11,22 @@ Native Apple remaster built from the reverse-engineered *TheZone* 1.5.1 game log
 - **The Zone macOS** — native macOS application, verified building and running on macOS 15 Sequoia. Keyboard is canonical; controllers exposed by Apple's `GameController.framework` are supported as an alternate input path.
 - **The Zone iPadOS** — separate native iPadOS application target. Apple-supported game controllers are first-class; touch controls remain available when no controller is connected.
 - **ZoneCore** — deterministic portable C engine library, with no AppKit/UIKit/Metal dependencies.
+
+## Milestone 0.8 — Base Damage Feedback & Headquarters Defense
+
+Milestone 0.8 begins with the known 0.7 play-test regression before adding further roadmap work.
+
+- verifies that Professional Mother Base damage remains cumulative through the full **40-hit** threshold even after its linked-defender cap is saturated;
+- restores the original nonlethal Mother Base/HQ hit-feedback semantic from PPC `0x19C9C`: a one-draw damage flag plus hit sound request on every valid nonlethal hit;
+- exposes that original damage flag to the Metal renderer as a short white impact flash, so valid hits remain visibly distinguishable from misses after defender spawning has capped out;
+- promotes the separate Headquarters hit-reaction routine at PPC `0x16390`;
+- Headquarters now launch linked defenders from their four corner positions with the recovered active cap of **4 Professional / 2 Beginner**;
+- keeps Mother Base Bee-request behavior separate: Headquarters launch defenders but do not take the Mother Base's Bee-request branch;
+- adds deterministic regression coverage for a full 40-hit Mother Base destruction chain and Headquarters defender replenishment.
+
+The exact classic palette operation used by the original `+133` draw flag and the exact original sound-resource mapping for sound-dispatch index 8 are still pending. The remaster preserves the recovered event semantics now without pretending those two presentation details are fully lifted.
+
+Detailed notes: [`Docs/MILESTONE-0.8.md`](Docs/MILESTONE-0.8.md).
 
 ## Milestone 0.7 — Hostile Combat, Fixed-Wave Lifecycle & Keyboard Remapping
 
@@ -130,7 +146,7 @@ The source art remains untouched; generated icon PNGs are derived assets.
 
 ## Accuracy status
 
-Milestone 0.7 is the current recovered-gameplay build. It is not yet a claim of 100% behavior parity. Exact sprite collision, object/save layouts, damage tables, fixed wave presets, several AI routines and core motion semantics have been recovered. Remaining AI/collision/wave/projectile/equipment state machines are being lifted into `ZoneCore/Recovered` and will replace temporary milestone logic subsystem-by-subsystem.
+Milestone 0.8 is the current recovered-gameplay build. It is not yet a claim of 100% behavior parity. Exact sprite collision, object/save layouts, damage tables, fixed wave presets, several AI routines and core motion semantics have been recovered. Remaining AI/collision/wave/projectile/equipment state machines are being lifted into `ZoneCore/Recovered` and will replace temporary milestone logic subsystem-by-subsystem.
 
 ## Asset completeness
 

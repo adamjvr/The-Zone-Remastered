@@ -137,3 +137,12 @@ int16_t tz_mother_defender_batch_count(bool professional, uint16_t random_word) 
     const int16_t base = professional ? 2 : 1;
     return (int16_t)(base + (random_word % span));
 }
+
+
+/* Headquarters hit-response routine at PPC 0x16390. Unlike the Mother Base
+ * routine, HQ defender deployment has no signed-Random gate: each invocation
+ * tries the four corner positions and stops once the mode-specific active cap
+ * is reached. */
+int16_t tz_hq_defender_active_cap(bool professional) {
+    return professional ? 4 : 2;
+}

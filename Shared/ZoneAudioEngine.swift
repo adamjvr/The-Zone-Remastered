@@ -8,6 +8,10 @@ final class ZoneAudioEngine {
     1: 153,
     2: 130,
     3: 131,
+    // Original PPC nonlethal Mother/HQ path requests sound-effect index 8.
+    // Exact legacy index->snd resource mapping is still pending; use the
+    // current generic impact sample so a valid hit is never silent.
+    4: 131,
   ]
   func play(_ event: ZoneAudioEvent) {
     guard let sid = soundForEvent[event.type],

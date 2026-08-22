@@ -44,6 +44,7 @@ struct Explosion {
 struct WorldObject {
     uint8_t active;
     uint8_t player_contact;
+    uint8_t hit_flash_ticks;
     uint32_t type;
     uint32_t subtype;
     float x, y, vx, vy;
@@ -423,15 +424,26 @@ static int frame24_toward(float from_x, float from_y, float to_x, float to_y) {
     return frame;
 }
 
-static int spawn_linked_defender(ZoneGame *g, int parent_slot,
-                                 uint32_t type, int ordinal) {
+static int spawn_linked_defender_at_offset(ZoneGame *g, int parent_slot,
+                                           uint32_t type, float dx, float dy) {
     if (parent_slot < 0 || parent_slot >= ZONE_WORLD_CAP) return -1;
     struct WorldObject *parent = &g->world[parent_slot];
     if (!parent->active) return -1;
 
+    struct WorldObject *child = spawn_world_object_at(
+        g, type, parent->x + dx, parent->y + dy, 0.0f, 0.0f);
+    if (!child) return -1;
+    child->parent_slot = parent_slot;
+    ++parent->defender_count;
+    ++g->enemies_remaining;
+    return (int)(child - g->world);
+}
+
+static int spawn_mother_defender(ZoneGame *g, int parent_slot,
+                                 uint32_t type, int ordinal) {
     /* PPC 0x161D0 passes one of five top-left placements around the 48x48
        Mother Base: (0,0),(32,0),(0,32),(32,32),(16,16). Defenders are 16x16,
-       so in ZoneCore's center-coordinate representation those become ±16
+       so in ZoneCore's center-coordinate representation those become +/-16
        corners plus the center. */
     static const float offsets[5][2] = {
         {-16.0f, -16.0f}, {16.0f, -16.0f},
@@ -439,13 +451,8 @@ static int spawn_linked_defender(ZoneGame *g, int parent_slot,
         {  0.0f,   0.0f},
     };
     const int oi = ordinal % 5;
-    struct WorldObject *child = spawn_world_object_at(
-        g, type, parent->x + offsets[oi][0], parent->y + offsets[oi][1], 0.0f, 0.0f);
-    if (!child) return -1;
-    child->parent_slot = parent_slot;
-    ++parent->defender_count;
-    ++g->enemies_remaining;
-    return (int)(child - g->world);
+    return spawn_linked_defender_at_offset(
+        g, parent_slot, type, offsets[oi][0], offsets[oi][1]);
 }
 
 static int launch_mother_defenders_with_words(ZoneGame *g, int parent_slot,
@@ -463,7 +470,7 @@ static int launch_mother_defenders_with_words(ZoneGame *g, int parent_slot,
     const uint32_t defender_type = parent->subtype ? parent->subtype : TZ_TYPE_SWAR;
     int spawned = 0;
     for (int i = 0; i < requested && parent->defender_count < cap; ++i) {
-        if (spawn_linked_defender(g, parent_slot, defender_type,
+        if (spawn_mother_defender(g, parent_slot, defender_type,
                                   parent->defender_count) < 0) break;
         ++spawned;
     }
@@ -474,6 +481,31 @@ static int launch_mother_defenders(ZoneGame *g, int parent_slot) {
     const int16_t gate = (int16_t)(rng_next(g) & 0xFFFFu);
     const uint16_t batch = (uint16_t)(rng_next(g) & 0xFFFFu);
     return launch_mother_defenders_with_words(g, parent_slot, gate, batch);
+}
+
+static int launch_hq_defenders(ZoneGame *g, int parent_slot) {
+    if (parent_slot < 0 || parent_slot >= ZONE_WORLD_CAP) return 0;
+    struct WorldObject *parent = &g->world[parent_slot];
+    if (!parent->active || parent->type != TZ_TYPE_BASE) return 0;
+
+    /* PPC 0x16390 has no Random gate. It tries the four HQ corner launch
+       positions and stops at the mode-specific active defender cap. */
+    static const float offsets[4][2] = {
+        {-16.0f, -16.0f}, {16.0f, -16.0f},
+        {-16.0f,  16.0f}, {16.0f,  16.0f},
+    };
+    const int cap = tz_hq_defender_active_cap(g->professional != 0);
+    const uint32_t defender_type = parent->subtype ? parent->subtype : TZ_TYPE_MOTO;
+    int spawned = 0;
+    for (int i = 0; i < 4 && parent->defender_count < cap; ++i) {
+        const int oi = parent->defender_count % 4;
+        if (spawn_linked_defender_at_offset(
+                g, parent_slot, defender_type, offsets[oi][0], offsets[oi][1]) < 0) {
+            break;
+        }
+        ++spawned;
+    }
+    return spawned;
 }
 
 static int request_bee(ZoneGame *g, int requester_slot) {
@@ -517,6 +549,10 @@ static void world_object_survived_player_shot(ZoneGame *g, int slot) {
            0x161D0 launch linked defenders, then 0x16504 request a Bee. */
         (void)launch_mother_defenders(g, slot);
         (void)request_bee(g, slot);
+    } else if (o->type == TZ_TYPE_BASE) {
+        /* Headquarters uses its separate non-random defender reaction
+           routine at PPC 0x16390. */
+        (void)launch_hq_defenders(g, slot);
     }
 }
 
@@ -784,6 +820,34 @@ static void destroy_world_object(ZoneGame *g, struct WorldObject *o) {
     clear_world_contacts_for_slot(g, slot);
 }
 
+static int apply_player_shot_to_world(ZoneGame *g, int slot, int damage) {
+    if (!g || slot < 0 || slot >= ZONE_WORLD_CAP || damage <= 0) return 0;
+    struct WorldObject *o = &g->world[slot];
+    if (!o->active) return 0;
+
+    const int threshold = destruction_threshold(g, o->type);
+    if (threshold <= 0) return 0;
+    o->damage += damage;
+
+    if (o->damage >= threshold) {
+        destroy_world_object(g, o);
+        return 1;
+    }
+
+    if (o->type == TZ_TYPE_MOTH || o->type == TZ_TYPE_BASE) {
+        /* PPC 0x19C9C sets object byte +133 and plays SFX index 8 after every
+           nonlethal Mother Base/HQ hit. The original renderer consumes and
+           clears +133 on the next draw. ZoneCore exposes that semantic as one
+           render-frame flash; exact legacy palette-effect reconstruction is
+           still pending. */
+        o->hit_flash_ticks = 1;
+        audio_push(g, ZONE_AUDIO_HIT, o->x, o->y);
+    }
+
+    world_object_survived_player_shot(g, slot);
+    return 0;
+}
+
 static void begin_player_death(ZoneGame *g) {
     if (!g->player_alive) return;
     g->player_alive = 0;
@@ -934,6 +998,7 @@ void zone_game_step(ZoneGame *g, ZoneInput in) {
     for (int i = 0; i < ZONE_WORLD_CAP; ++i) {
         struct WorldObject *o = &g->world[i];
         if (!o->active) continue;
+        if (o->hit_flash_ticks > 0) --o->hit_flash_ticks;
         ++o->tick;
 
         update_simple_enemy_ai(g, o);
@@ -997,12 +1062,8 @@ void zone_game_step(ZoneGame *g, ZoneInput in) {
                                    o->sprite_base + o->frame, o->x, o->y)) continue;
 
             deactivate_projectile(g, p);
-            o->damage += tz_shot_damage_from_upgrade(0);
-            if (o->damage >= threshold) {
-                destroy_world_object(g, o);
-            } else {
-                world_object_survived_player_shot(g, j);
-            }
+            (void)apply_player_shot_to_world(
+                g, j, tz_shot_damage_from_upgrade(0));
         }
     }
 
@@ -1122,24 +1183,25 @@ int32_t zone_game_render_item_count(const ZoneGame *g) {
 }
 
 ZoneRenderItem zone_game_render_item_at(const ZoneGame *g, int32_t index) {
-    ZoneRenderItem z = {0, 0, 0, 0, 0};
+    ZoneRenderItem z = {0, 0, 0, 0, 0, 0};
     if (!g || index < 0) return z;
     int n = 0;
 
     if (g->player_alive && index == n++) {
-        return (ZoneRenderItem){current_ship_sprite(g), g->player_x, g->player_y, 32, 1};
+        return (ZoneRenderItem){current_ship_sprite(g), g->player_x, g->player_y, 32, 1, 0};
     }
     for (int i = 0; i < ZONE_WORLD_CAP; ++i) {
         const struct WorldObject *o = &g->world[i];
         if (!o->active) continue;
         if (index == n++) {
-            return (ZoneRenderItem){o->sprite_base + o->frame, o->x, o->y, (float)o->side, 1};
+            return (ZoneRenderItem){o->sprite_base + o->frame, o->x, o->y, (float)o->side, 1,
+                                    o->hit_flash_ticks ? 1.0f : 0.0f};
         }
     }
     for (int i = 0; i < ZONE_PROJECTILE_CAP; ++i) {
         const struct Projectile *p = &g->projectiles[i];
         if (!p->active) continue;
-        if (index == n++) return (ZoneRenderItem){p->sprite, p->x, p->y, 4, 1};
+        if (index == n++) return (ZoneRenderItem){p->sprite, p->x, p->y, 4, 1, 0};
     }
     for (int i = 0; i < ZONE_EXPLOSION_CAP; ++i) {
         const struct Explosion *e = &g->explosions[i];
@@ -1147,7 +1209,7 @@ ZoneRenderItem zone_game_render_item_at(const ZoneGame *g, int32_t index) {
         if (index == n++) {
             int frame = e->age / 2;
             if (frame >= e->frame_count) frame = e->frame_count - 1;
-            return (ZoneRenderItem){e->sprite_base + frame, e->x, e->y, (float)e->side, 1};
+            return (ZoneRenderItem){e->sprite_base + frame, e->x, e->y, (float)e->side, 1, 0};
         }
     }
     return z;
@@ -1308,6 +1370,21 @@ int32_t zone_game_debug_trigger_mother_defense(ZoneGame *g, int32_t index,
 int32_t zone_game_debug_request_bee(ZoneGame *g, int32_t requester_index) {
     if (!g) return -1;
     return request_bee(g, (int)requester_index);
+}
+
+int32_t zone_game_debug_world_damage(const ZoneGame *g, int32_t index) {
+    if (!g || index < 0 || index >= ZONE_WORLD_CAP || !g->world[index].active) return -1;
+    return g->world[index].damage;
+}
+
+int32_t zone_game_debug_apply_player_shot(ZoneGame *g, int32_t index) {
+    if (!g) return 0;
+    return apply_player_shot_to_world(g, (int)index, tz_shot_damage_from_upgrade(0));
+}
+
+int32_t zone_game_debug_trigger_hq_defense(ZoneGame *g, int32_t index) {
+    if (!g) return 0;
+    return launch_hq_defenders(g, (int)index);
 }
 
 int32_t zone_game_active_hostile_projectiles(const ZoneGame *g) {

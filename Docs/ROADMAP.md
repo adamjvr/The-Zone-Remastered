@@ -26,7 +26,7 @@ Completed:
 
 Remaining forensic work is mostly in service of behavioral parity: historical version binary diffs, exact classic RNG, and unresolved state-machine constants.
 
-## Phase 1 — Gameplay decompilation — ~78%
+## Phase 1 — Gameplay decompilation — ~80%
 
 **Status: active.**
 
@@ -83,9 +83,9 @@ Completed:
 
 Remaining platform work is primarily product/UI polish and iPad device validation, not architectural restructuring.
 
-## Phase 3 — Live Classic gameplay reconstruction — ~50%
+## Phase 3 — Live Classic gameplay reconstruction — ~55%
 
-**Current phase: Milestone 0.7.**
+**Current phase: Milestone 0.8.**
 
 Delivered through 0.5:
 
@@ -117,6 +117,13 @@ Milestone 0.7 keeps that roadmap intact and advances the next listed items:
 - the combat-objective clear condition now advances Wave 1 into Wave 2 and continues through the fixed-wave range;
 - macOS gains persistent keyboard remapping inside the pause menu as a product-layer addition, without changing ZoneCore's semantic input API.
 
+Milestone 0.8 starts with the known 0.7 base-damage play-test issue and keeps the same priorities:
+
+- confirms cumulative Mother Base damage continues through the recovered Professional threshold of **40** even after defender launch has reached its active cap;
+- restores the recovered nonlethal Mother/HQ damage-draw flag and hit-event semantics so later valid hits no longer look like misses;
+- promotes Headquarters `0x16390` defender deployment with the recovered active cap of **4 Professional / 2 Beginner** and four corner launch positions;
+- adds long-run damage and HQ-replenishment regression tests before further state-machine promotion.
+
 Next priorities remain substantially unchanged:
 
 1. complete Mother Base/HQ state machines;
@@ -125,7 +132,7 @@ Next priorities remain substantially unchanged:
 4. complete wave-transition presentation and procedural waves 19+;
 5. remaining collision/destruction/equipment special cases.
 
-## Phase 4 — Full Classic Mode — ~28%
+## Phase 4 — Full Classic Mode — ~32%
 
 **Goal:** play continuously from Wave 1 onward with original rules and data.
 

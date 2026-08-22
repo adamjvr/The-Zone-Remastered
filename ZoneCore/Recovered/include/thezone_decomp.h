@@ -103,6 +103,9 @@ float tz_enemy_projectile_speed(void);
 bool tz_mother_should_launch_defenders(int16_t random_word);
 int16_t tz_mother_defender_active_cap(bool professional);
 int16_t tz_mother_defender_batch_count(bool professional, uint16_t random_word);
+/* HQ hit-response routine at PPC 0x16390: active linked-defender cap is
+ * four in Professional mode and two in Beginner mode. */
+int16_t tz_hq_defender_active_cap(bool professional);
 
 /* Recovered collision semantics. */
 void tz_swap_fixed_velocity(TzZoneObjectPPC32 *a, TzZoneObjectPPC32 *b);
