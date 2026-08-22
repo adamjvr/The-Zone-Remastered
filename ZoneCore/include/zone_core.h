@@ -101,6 +101,12 @@ void zone_game_debug_set_progression(ZoneGame *game, int32_t shields, int32_t am
 int32_t zone_game_debug_spawn_world(ZoneGame *game, uint32_t fourcc,
                                     float x, float y, float vx, float vy);
 void zone_game_debug_destroy_world(ZoneGame *game, int32_t index);
+uint32_t zone_game_debug_world_subtype(const ZoneGame *game, int32_t index);
+int32_t zone_game_debug_world_parent(const ZoneGame *game, int32_t index);
+int32_t zone_game_debug_world_defender_count(const ZoneGame *game, int32_t index);
+int32_t zone_game_debug_trigger_mother_defense(ZoneGame *game, int32_t index,
+                                               int16_t gate_word, uint16_t batch_word);
+int32_t zone_game_debug_request_bee(ZoneGame *game, int32_t requester_index);
 
 #ifdef __cplusplus
 }

@@ -53,3 +53,50 @@ void tz_seek_direct_velocity(TzZoneObjectPPC32 *obj, int16_t target_x, int16_t t
 bool tz_signed_random_strict_window(int16_t random_word, int16_t low, int16_t high) {
     return random_word > low && random_word < high;
 }
+
+
+/* Enemy update cadences and per-axis velocity caps from the native PPC
+ * behavior dispatcher:
+ *   swar: every 4 updates, cap 8
+ *   bloo: every 3 updates, cap 9
+ *   moto: every update, cap 10
+ *   raid: every 2 updates, cap 9
+ */
+int16_t tz_enemy_chase_interval(uint32_t type) {
+    switch (type) {
+        case TZ_TYPE_SWAR: return 4;
+        case TZ_TYPE_BLOO: return 3;
+        case TZ_TYPE_MOTO: return 1;
+        case TZ_TYPE_RAID: return 2;
+        default: return 0;
+    }
+}
+
+int16_t tz_enemy_axis_cap(uint32_t type) {
+    switch (type) {
+        case TZ_TYPE_SWAR: return 8;
+        case TZ_TYPE_BLOO: return 9;
+        case TZ_TYPE_MOTO: return 10;
+        case TZ_TYPE_RAID: return 9;
+        default: return 0;
+    }
+}
+
+/* Mother Base hit-reaction routine at PPC 0x161D0. The cached signed Random
+ * value must lie strictly inside (10000,30000). Professional mode allows five
+ * simultaneously linked defenders and launches 2..5 per successful request;
+ * Beginner uses a cap of three and launches 1..3.
+ */
+bool tz_mother_should_launch_defenders(int16_t random_word) {
+    return tz_signed_random_strict_window(random_word, 10000, 30000);
+}
+
+int16_t tz_mother_defender_active_cap(bool professional) {
+    return professional ? 5 : 3;
+}
+
+int16_t tz_mother_defender_batch_count(bool professional, uint16_t random_word) {
+    const uint16_t span = professional ? 4u : 3u;
+    const int16_t base = professional ? 2 : 1;
+    return (int16_t)(base + (random_word % span));
+}

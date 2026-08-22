@@ -2,7 +2,7 @@
   <img src="Docs/images/TheZoneRemastered-Ship.png" alt="The Zone Remastered ship" width="720">
 </p>
 
-# The Zone Remastered — Engineering Milestone 0.5
+# The Zone Remastered — Engineering Milestone 0.3
 
 Native Apple remaster built from the reverse-engineered *TheZone* 1.5.1 game logic and assets.
 
@@ -11,24 +11,6 @@ Native Apple remaster built from the reverse-engineered *TheZone* 1.5.1 game log
 - **The Zone macOS** — native macOS application, verified building and running on macOS 15 Sequoia. Keyboard is canonical; controllers exposed by Apple's `GameController.framework` are supported as an alternate input path.
 - **The Zone iPadOS** — separate native iPadOS application target. Apple-supported game controllers are first-class; touch controls remain available when no controller is connected.
 - **ZoneCore** — deterministic portable C engine library, with no AppKit/UIKit/Metal dependencies.
-
-## Milestone 0.5 — Destruction, Pickups & Progression
-
-Milestone 0.5 moves the running game beyond collision response into recovered gameplay consequences:
-
-- corrects the original initial maximum speed to **25.0**;
-- implements Velocity Modules as **+5 maximum speed up to 50**;
-- implements Ammunition Loaders as **+1 simultaneous projectile capacity up to 10**;
-- implements Oscilloscopes as a **shield restore to 100**;
-- makes destroyed medium asteroids create their recovered VELO/AMMO payload;
-- adds the recovered barrel-selection logic for saturated upgrade paths;
-- adds Big Rock **2..4 fragment** destruction and its recovered hidden Seeker/Raider selection rule;
-- begins the ship destruction/respawn lifecycle using the ship-specific 20-frame explosion;
-- displays current/max speed in the native HUD.
-
-The exact Big-Rock fragment angle table, bonus/equipment/gadget effects, and final `0x1663C` respawn timing/placement remain deliberately isolated as incomplete rather than guessed as final behavior.
-
-Detailed notes: [`Docs/MILESTONE-0.5.md`](Docs/MILESTONE-0.5.md).
 
 ## Milestone 0.3 — Real Zone, phase 1
 
@@ -116,7 +98,7 @@ The source art remains untouched; generated icon PNGs are derived assets.
 
 ## Accuracy status
 
-Milestone 0.5 is the current recovered-gameplay build. It is not yet a claim of 100% behavior parity. Exact sprite collision, object/save layouts, damage tables, fixed wave presets, several AI routines and core motion semantics have been recovered. Remaining AI/collision/wave/projectile/equipment state machines are being lifted into `ZoneCore/Recovered` and will replace temporary milestone logic subsystem-by-subsystem.
+Milestone 0.3 is the first transition from the engineering sandbox into recovered game population. It is not yet a claim of 100% behavior parity. Exact sprite collision, object/save layouts, damage tables, fixed wave presets, several AI routines and core motion semantics have been recovered. Remaining AI/collision/wave/projectile/equipment state machines are being lifted into `ZoneCore/Recovered` and will replace temporary milestone logic subsystem-by-subsystem.
 
 ## Asset completeness
 

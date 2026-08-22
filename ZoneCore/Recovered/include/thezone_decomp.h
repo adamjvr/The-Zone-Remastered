@@ -93,6 +93,14 @@ void tz_seek_direct_velocity(TzZoneObjectPPC32 *obj, int16_t target_x, int16_t t
                              const float neg_sin_360[360], const float cos_360[360]);
 bool tz_signed_random_strict_window(int16_t random_word, int16_t low, int16_t high);
 
+
+/* Recovered enemy / Mother Base behavior semantics. */
+int16_t tz_enemy_chase_interval(uint32_t type);
+int16_t tz_enemy_axis_cap(uint32_t type);
+bool tz_mother_should_launch_defenders(int16_t random_word);
+int16_t tz_mother_defender_active_cap(bool professional);
+int16_t tz_mother_defender_batch_count(bool professional, uint16_t random_word);
+
 /* Recovered collision semantics. */
 void tz_swap_fixed_velocity(TzZoneObjectPPC32 *a, TzZoneObjectPPC32 *b);
 void tz_swap_float_velocity(TzZoneObjectPPC32 *a, TzZoneObjectPPC32 *b);

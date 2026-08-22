@@ -11,29 +11,42 @@ final class ZoneControllerManager: ObservableObject {
   @Published private(set) var hasController = false
   private var observers: [NSObjectProtocol] = []
 
+  private let pauseLock = NSLock()
+  private var menuWasPressed = false
+  private var lastMenuPulseUptime: TimeInterval = -1
+  private let menuDebounceSeconds: TimeInterval = 0.20
+
   init() {
     GCController.startWirelessControllerDiscovery(completionHandler: nil)
     let nc = NotificationCenter.default
     observers.append(
       nc.addObserver(forName: .GCControllerDidConnect, object: nil, queue: .main) { [weak self] _ in
-        self?.refresh()
+        self?.refresh(resetPauseEdge: true)
       })
     observers.append(
       nc.addObserver(forName: .GCControllerDidDisconnect, object: nil, queue: .main) {
-        [weak self] _ in self?.refresh()
+        [weak self] _ in self?.refresh(resetPauseEdge: true)
       })
     observers.append(
       nc.addObserver(
         forName: .GCControllerUserCustomizationsDidChange,
         object: nil,
         queue: .main
-      ) { [weak self] _ in self?.refresh() })
-    refresh()
+      ) { [weak self] _ in self?.refresh(resetPauseEdge: false) })
+    refresh(resetPauseEdge: true)
   }
 
   deinit { observers.forEach { NotificationCenter.default.removeObserver($0) } }
 
-  private func refresh() { hasController = !GCController.controllers().isEmpty }
+  private func refresh(resetPauseEdge: Bool) {
+    hasController = !GCController.controllers().isEmpty
+    if resetPauseEdge {
+      pauseLock.lock()
+      menuWasPressed = false
+      lastMenuPulseUptime = -1
+      pauseLock.unlock()
+    }
+  }
 
   private func activeController() -> GCController? {
     GCController.current ?? GCController.controllers().first
@@ -47,12 +60,31 @@ final class ZoneControllerManager: ObservableObject {
     profile.buttons[name]?.isPressed ?? false
   }
 
+  private func menuPausePulse(_ pressed: Bool) -> UInt8 {
+    pauseLock.lock()
+    defer { pauseLock.unlock() }
+
+    let risingEdge = pressed && !menuWasPressed
+    menuWasPressed = pressed
+    guard risingEdge else { return 0 }
+
+    // Some controller/profile combinations can briefly bounce the Menu state.
+    // Reject a second rising edge inside a small human-impossible interval.
+    let now = ProcessInfo.processInfo.systemUptime
+    if lastMenuPulseUptime >= 0 && now - lastMenuPulseUptime < menuDebounceSeconds {
+      return 0
+    }
+    lastMenuPulseUptime = now
+    return 1
+  }
+
   func sample() -> ZoneInput {
     var out = ZoneInput()
-    guard let controller = activeController() else { return out }
+    guard let controller = activeController() else {
+      _ = menuPausePulse(false)
+      return out
+    }
 
-    // physicalInputProfile exposes Apple's semantic element aliases and honors
-    // the player's system-level controller remapping.
     let profile = controller.physicalInputProfile
     let stickX = profile.dpads[GCInputLeftThumbstick]?.xAxis.value ?? 0
     let dpadX = profile.dpads[GCInputDirectionPad]?.xAxis.value ?? 0
@@ -68,10 +100,8 @@ final class ZoneControllerManager: ObservableObject {
     out.equipment_up = buttonPressed(GCInputButtonY, in: profile) ? 1 : 0
     out.equipment_down = buttonPressed(GCInputButtonB, in: profile) ? 1 : 0
     out.select = buttonPressed(GCInputLeftShoulder, in: profile) ? 1 : 0
-    out.pause = buttonPressed(GCInputButtonMenu, in: profile) ? 1 : 0
+    out.pause = menuPausePulse(buttonPressed(GCInputButtonMenu, in: profile))
 
-    // Directional/micro controllers may not expose face buttons under every
-    // profile. Keep a minimal fallback without identifying any hardware model.
     if profile.buttons[GCInputButtonA] == nil, let micro = controller.microGamepad {
       out.thrust = max(out.thrust, max(0, micro.dpad.yAxis.value))
       out.fire = micro.buttonA.isPressed ? 1 : out.fire

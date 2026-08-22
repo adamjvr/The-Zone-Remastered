@@ -1,15 +1,21 @@
-The Zone Remastered — Milestone 0.4 overlay
+Milestone 0.6.2 consistency-repair overlay
 
-Changed/new files:
-- README.md
-- Docs/MILESTONE-0.4.md
+Purpose:
+- repair stale/mixed 0.5/0.6 headers exposed by the 0.6.1 verifier
+- retain 0.6.1 pause edge/debounce fix
+- retain 0.6.1 Mother Base/HQ frame-stability fix
+
+Files synchronized:
 - ZoneCore/include/zone_core.h
 - ZoneCore/src/zone_core.c
-- ZoneCore/Recovered/include/thezone_decomp.h
-- ZoneCore/Recovered/src/collision.c
 - ZoneCore/tests/test_zone_core.c
-- Tools/test-zonecore.sh
-- Tools/verify-milestone-0.4.command
-- APPLY-MILESTONE-0.4.command
+- ZoneCore/Recovered/include/thezone_decomp.h
+- ZoneCore/Recovered/src/objects.c
+- ZoneCore/Recovered/src/ai.c
+- Shared/ZoneInputRouter.swift
+- Shared/ZoneControllerManager.swift
+- Shared/ZoneMetalView.swift
+- Shared/ZoneGameHost.swift
+- Shared/ZoneContentView.swift
 
-No Xcode project/build-setting files are changed in this milestone.
+Does not modify Xcode project/signing/native target separation.

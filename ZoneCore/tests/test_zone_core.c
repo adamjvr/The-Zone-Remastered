@@ -138,6 +138,141 @@ static void test_player_death_respawn_skeleton(void) {
     zone_game_destroy(g);
 }
 
+
+static void test_recovered_enemy_behavior_constants(void) {
+    assert(tz_enemy_chase_interval(TZ_TYPE_SWAR) == 4);
+    assert(tz_enemy_axis_cap(TZ_TYPE_SWAR) == 8);
+    assert(tz_enemy_chase_interval(TZ_TYPE_BLOO) == 3);
+    assert(tz_enemy_axis_cap(TZ_TYPE_BLOO) == 9);
+    assert(tz_enemy_chase_interval(TZ_TYPE_MOTO) == 1);
+    assert(tz_enemy_axis_cap(TZ_TYPE_MOTO) == 10);
+    assert(tz_enemy_chase_interval(TZ_TYPE_RAID) == 2);
+    assert(tz_enemy_axis_cap(TZ_TYPE_RAID) == 9);
+
+    assert(!tz_mother_should_launch_defenders(10000));
+    assert(tz_mother_should_launch_defenders(10001));
+    assert(tz_mother_should_launch_defenders(29999));
+    assert(!tz_mother_should_launch_defenders(30000));
+    assert(tz_mother_defender_active_cap(true) == 5);
+    assert(tz_mother_defender_active_cap(false) == 3);
+    assert(tz_mother_defender_batch_count(true, 0) == 2);
+    assert(tz_mother_defender_batch_count(true, 3) == 5);
+    assert(tz_mother_defender_batch_count(false, 0) == 1);
+    assert(tz_mother_defender_batch_count(false, 2) == 3);
+}
+
+static void test_wave1_mother_defense_and_bee_semantics(void) {
+    ZoneGame *g = zone_game_create(0x161D0u);
+    assert(g);
+    const int32_t moth = zone_game_debug_find_nth_type(g, TZ_TYPE_MOTH, 0);
+    assert(moth >= 0);
+
+    /* Professional Wave 1 has no Bloody quota: the sole Mother Base's
+       defender subtype is Empire Fighter ('swar'). */
+    assert(zone_game_debug_world_subtype(g, moth) == TZ_TYPE_SWAR);
+    assert(zone_game_hud(g).enemies == 0);
+
+    /* PPC 0x16504 excludes the requesting base itself. With only one base in
+       Wave 1 there is no valid donor, therefore no Bee can be produced. */
+    assert(zone_game_debug_request_bee(g, moth) < 0);
+    assert(zone_game_count_type(g, TZ_TYPE_BEE) == 0);
+
+    /* A valid 0x161D0 gate plus batch word 3 selects the Professional maximum
+       batch of 5 and fills the recovered active-defender cap. */
+    assert(zone_game_debug_trigger_mother_defense(g, moth, 15000, 3) == 5);
+    assert(zone_game_count_type(g, TZ_TYPE_SWAR) == 5);
+    assert(zone_game_hud(g).enemies == 5);
+    assert(zone_game_debug_world_defender_count(g, moth) == 5);
+
+    for (int n = 0; n < 5; ++n) {
+        const int32_t swar = zone_game_debug_find_nth_type(g, TZ_TYPE_SWAR, n);
+        assert(swar >= 0);
+        assert(zone_game_debug_world_parent(g, swar) == moth);
+    }
+
+    assert(zone_game_debug_trigger_mother_defense(g, moth, 15000, 0) == 0);
+
+    const int32_t first = zone_game_debug_find_nth_type(g, TZ_TYPE_SWAR, 0);
+    assert(first >= 0);
+    zone_game_debug_destroy_world(g, first);
+    assert(zone_game_debug_world_defender_count(g, moth) == 4);
+    assert(zone_game_hud(g).enemies == 4);
+
+    /* Cap enforcement allows exactly one replacement even though the batch
+       request asks for two. */
+    assert(zone_game_debug_trigger_mother_defense(g, moth, 15000, 0) == 1);
+    assert(zone_game_debug_world_defender_count(g, moth) == 5);
+    assert(zone_game_hud(g).enemies == 5);
+    zone_game_destroy(g);
+}
+
+
+static void test_two_base_bee_request_linkage(void) {
+    ZoneGame *g = zone_game_create(0x16504u);
+    assert(g);
+    const int32_t requester = zone_game_debug_find_nth_type(g, TZ_TYPE_MOTH, 0);
+    assert(requester >= 0);
+    const int32_t donor = zone_game_debug_spawn_world(
+        g, TZ_TYPE_MOTH, 420.0f, 160.0f, 0.0f, 0.0f);
+    assert(donor >= 0 && donor != requester);
+
+    const int32_t bee = zone_game_debug_request_bee(g, requester);
+    assert(bee >= 0);
+    assert(zone_game_count_type(g, TZ_TYPE_BEE) == 1);
+    assert(zone_game_debug_world_parent(g, bee) == donor);
+    assert(zone_game_hud(g).enemies == 1);
+
+    /* Wave-1 bee_limit is one request per requester. */
+    assert(zone_game_debug_request_bee(g, requester) < 0);
+
+    zone_game_debug_destroy_world(g, bee);
+    assert(zone_game_count_type(g, TZ_TYPE_BEE) == 0);
+    assert(zone_game_hud(g).enemies == 0);
+
+    /* Destroying the linked Bee repairs both recovered counters. */
+    assert(zone_game_debug_request_bee(g, requester) >= 0);
+    zone_game_destroy(g);
+}
+
+static void test_empire_fighter_live_chase(void) {
+    ZoneGame *g = zone_game_create(0x5A4A2u);
+    assert(g);
+    park_wave1_except(g, -1, -1);
+    zone_game_debug_set_player_state(g, 300.0f, 240.0f, 0.0f, 0.0f);
+    const int32_t swar = zone_game_debug_spawn_world(
+        g, TZ_TYPE_SWAR, 100.0f, 240.0f, 0.0f, 0.0f);
+    assert(swar >= 0);
+
+    advance_ticks(g, 3);
+    ZoneDebugBodyState s0 = zone_game_debug_world_state(g, swar);
+    assert(nearly(s0.vx, 0.0f) && nearly(s0.vy, 0.0f));
+
+    advance_ticks(g, 1);
+    ZoneDebugBodyState s1 = zone_game_debug_world_state(g, swar);
+    assert(nearly(s1.vx, 1.0f));
+    assert(nearly(s1.vy, 0.0f));
+    assert(s1.frame == 0); /* 24-frame bank: frame 0 faces right */
+    zone_game_destroy(g);
+}
+
+
+static void test_mother_base_frame_is_stable(void) {
+    ZoneGame *g = zone_game_create(0x14C70u);
+    assert(g);
+    const int32_t moth = zone_game_debug_find_nth_type(g, TZ_TYPE_MOTH, 0);
+    assert(moth >= 0);
+    park_wave1_except(g, moth, -1);
+    const ZoneDebugBodyState before = zone_game_debug_world_state(g, moth);
+
+    /* PPC moth handler 0x14C70 does not advance sprite_frame (+56).  The
+       portable generic passive-animation loop must therefore leave the Mother
+       Base's chosen frame unchanged while it is otherwise idle. */
+    advance_ticks(g, 64);
+    const ZoneDebugBodyState after = zone_game_debug_world_state(g, moth);
+    assert(after.frame == before.frame);
+    zone_game_destroy(g);
+}
+
 static void test_muzzle_table(void) {
     const TzMuzzleOffset f0 = tz_ship_muzzle_offset_frame48(0);
     const TzMuzzleOffset f12 = tz_ship_muzzle_offset_frame48(12);
@@ -246,6 +381,11 @@ static void test_world_body_exchange_latch(void) {
 
 int main(void) {
     test_muzzle_table();
+    test_mother_base_frame_is_stable();
+    test_recovered_enemy_behavior_constants();
+    test_wave1_mother_defense_and_bee_semantics();
+    test_two_base_bee_request_linkage();
+    test_empire_fighter_live_chase();
     test_recovered_impact_damage();
     test_recovered_progression_constants();
     test_ammo_is_shot_capacity();
@@ -304,5 +444,11 @@ int main(void) {
     puts("Asteroid VELO/AMMO payload consequence: PASS");
     puts("Big Rock 2..4 fragment consequence: PASS");
     puts("Player death/respawn lifecycle skeleton: PASS");
+    puts("Recovered Mother Base defender gate/cap/batch: PASS");
+    puts("Professional Wave-1 Mother subtype / no-self-Bee request: PASS");
+    puts("Two-base Bee donor/requester linkage + counter repair: PASS");
+    puts("Linked Empire Fighter spawn/count cleanup: PASS");
+    puts("Live Empire Fighter chase cadence/cap/facing: PASS");
+    puts("Mother Base/HQ sprite-frame stability regression: PASS");
     return 0;
 }

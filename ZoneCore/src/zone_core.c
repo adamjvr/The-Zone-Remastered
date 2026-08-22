@@ -41,6 +41,7 @@ struct WorldObject {
     uint8_t active;
     uint8_t player_contact;
     uint32_t type;
+    uint32_t subtype;
     float x, y, vx, vy;
     int sprite_base;
     int frame_count;
@@ -48,6 +49,15 @@ struct WorldObject {
     int side;
     int damage;
     int tick;
+
+    /* Portable equivalents of the recovered object-link/counter state.
+       The shipping PPC object stores object links as pointers; ZoneCore uses
+       stable world-slot indices so save/host pointer width never leaks in. */
+    int parent_slot;
+    int requester_slot;
+    int defender_count;
+    int bee_out_count;
+    int bee_request_count;
 };
 
 struct ZoneGame {
@@ -66,6 +76,7 @@ struct ZoneGame {
 
     int score, shields, wave, ammo;
     int bases_remaining, enemies_remaining;
+    int bee_limit;
     float shield_strength;
     float player_max_speed;
     int equipment_upgrade_a;
@@ -265,6 +276,8 @@ static struct WorldObject *spawn_world_object(ZoneGame *g, uint32_t type) {
     memset(o, 0, sizeof(*o));
     o->active = 1;
     o->type = type;
+    o->parent_slot = -1;
+    o->requester_slot = -1;
     o->sprite_base = base;
     o->frame_count = frames;
     o->side = side;
@@ -303,11 +316,170 @@ static void populate_wave_1(ZoneGame *g) {
 
     for (unsigned i = 0; i < asteroids; ++i) (void)spawn_world_object(g, TZ_TYPE_ASTE);
     if (preset) {
-        for (int i = 0; i < preset->moth_count; ++i) (void)spawn_world_object(g, TZ_TYPE_MOTH);
-        for (int i = 0; i < preset->base_count; ++i) (void)spawn_world_object(g, TZ_TYPE_BASE);
+        int bloo_left = preset->bloo_subtype_quota;
+        for (int i = 0; i < preset->moth_count; ++i) {
+            struct WorldObject *m = spawn_world_object(g, TZ_TYPE_MOTH);
+            if (m) {
+                /* PPC 0x13328 assigns a defender class to each Mother Base.
+                   Professional Wave 1 has quota 0, so its sole Mother Base
+                   launches Empire Fighters ('swar') when attacked. */
+                if (bloo_left > 0) {
+                    m->subtype = TZ_TYPE_BLOO;
+                    --bloo_left;
+                } else {
+                    m->subtype = TZ_TYPE_SWAR;
+                }
+            }
+        }
+        for (int i = 0; i < preset->base_count; ++i) {
+            struct WorldObject *b = spawn_world_object(g, TZ_TYPE_BASE);
+            if (b) {
+                if (bloo_left > 0) {
+                    b->subtype = TZ_TYPE_BLOO;
+                    --bloo_left;
+                } else {
+                    b->subtype = TZ_TYPE_MOTO;
+                }
+            }
+        }
         g->bases_remaining = preset->moth_count + preset->base_count;
         g->enemies_remaining = preset->raid_count + preset->seek_count;
+        g->bee_limit = preset->bee_limit;
     }
+}
+
+
+static float shortest_wrapped_delta(float from, float to, float extent) {
+    float d = to - from;
+    if (d > extent * 0.5f) d -= extent;
+    if (d < -extent * 0.5f) d += extent;
+    return d;
+}
+
+static int frame24_toward(float from_x, float from_y, float to_x, float to_y) {
+    const float dx = shortest_wrapped_delta(from_x, to_x, ZONE_LOGICAL_WIDTH);
+    const float dy = shortest_wrapped_delta(from_y, to_y, ZONE_LOGICAL_HEIGHT);
+    float degrees = atan2f(-dy, dx) * 180.0f / ZONE_PI;
+    if (degrees < 0.0f) degrees += 360.0f;
+    int frame = (int)(degrees / 15.0f);
+    if (frame < 0) frame = 0;
+    if (frame > 23) frame = 23;
+    return frame;
+}
+
+static int spawn_linked_defender(ZoneGame *g, int parent_slot,
+                                 uint32_t type, int ordinal) {
+    if (parent_slot < 0 || parent_slot >= ZONE_WORLD_CAP) return -1;
+    struct WorldObject *parent = &g->world[parent_slot];
+    if (!parent->active) return -1;
+
+    /* PPC 0x161D0 passes one of five top-left placements around the 48x48
+       Mother Base: (0,0),(32,0),(0,32),(32,32),(16,16). Defenders are 16x16,
+       so in ZoneCore's center-coordinate representation those become ±16
+       corners plus the center. */
+    static const float offsets[5][2] = {
+        {-16.0f, -16.0f}, {16.0f, -16.0f},
+        {-16.0f,  16.0f}, {16.0f,  16.0f},
+        {  0.0f,   0.0f},
+    };
+    const int oi = ordinal % 5;
+    struct WorldObject *child = spawn_world_object_at(
+        g, type, parent->x + offsets[oi][0], parent->y + offsets[oi][1], 0.0f, 0.0f);
+    if (!child) return -1;
+    child->parent_slot = parent_slot;
+    ++parent->defender_count;
+    ++g->enemies_remaining;
+    return (int)(child - g->world);
+}
+
+static int launch_mother_defenders_with_words(ZoneGame *g, int parent_slot,
+                                               int16_t gate_word,
+                                               uint16_t batch_word) {
+    if (parent_slot < 0 || parent_slot >= ZONE_WORLD_CAP) return 0;
+    struct WorldObject *parent = &g->world[parent_slot];
+    if (!parent->active || parent->type != TZ_TYPE_MOTH) return 0;
+    if (!tz_mother_should_launch_defenders(gate_word)) return 0;
+
+    const int cap = tz_mother_defender_active_cap(g->professional != 0);
+    if (parent->defender_count >= cap) return 0;
+
+    const int requested = tz_mother_defender_batch_count(g->professional != 0, batch_word);
+    const uint32_t defender_type = parent->subtype ? parent->subtype : TZ_TYPE_SWAR;
+    int spawned = 0;
+    for (int i = 0; i < requested && parent->defender_count < cap; ++i) {
+        if (spawn_linked_defender(g, parent_slot, defender_type,
+                                  parent->defender_count) < 0) break;
+        ++spawned;
+    }
+    return spawned;
+}
+
+static int launch_mother_defenders(ZoneGame *g, int parent_slot) {
+    const int16_t gate = (int16_t)(rng_next(g) & 0xFFFFu);
+    const uint16_t batch = (uint16_t)(rng_next(g) & 0xFFFFu);
+    return launch_mother_defenders_with_words(g, parent_slot, gate, batch);
+}
+
+static int request_bee(ZoneGame *g, int requester_slot) {
+    if (requester_slot < 0 || requester_slot >= ZONE_WORLD_CAP) return -1;
+    struct WorldObject *requester = &g->world[requester_slot];
+    if (!requester->active ||
+        (requester->type != TZ_TYPE_MOTH && requester->type != TZ_TYPE_BASE)) return -1;
+    if (g->bee_limit <= 0 || requester->bee_request_count >= g->bee_limit) return -1;
+
+    /* PPC 0x16504 explicitly searches for ANOTHER Mother Base/HQ and excludes
+       the requester. That donor must not already have a Bee outstanding. */
+    for (int donor_slot = 0; donor_slot < ZONE_WORLD_CAP; ++donor_slot) {
+        if (donor_slot == requester_slot) continue;
+        struct WorldObject *donor = &g->world[donor_slot];
+        if (!donor->active) continue;
+        if (donor->type != TZ_TYPE_MOTH && donor->type != TZ_TYPE_BASE) continue;
+        if (donor->bee_out_count != 0) continue;
+
+        /* Original top-left placement is donor +8,+8. A 32px Bee centered
+           inside a 48px base therefore has the same center as its donor. */
+        struct WorldObject *bee = spawn_world_object_at(
+            g, TZ_TYPE_BEE, donor->x, donor->y, 0.0f, 0.0f);
+        if (!bee) return -1;
+        bee->parent_slot = donor_slot;
+        bee->requester_slot = requester_slot;
+        ++donor->bee_out_count;
+        ++requester->bee_request_count;
+        ++g->enemies_remaining;
+        return (int)(bee - g->world);
+    }
+    return -1;
+}
+
+static void world_object_survived_player_shot(ZoneGame *g, int slot) {
+    if (slot < 0 || slot >= ZONE_WORLD_CAP) return;
+    struct WorldObject *o = &g->world[slot];
+    if (!o->active) return;
+
+    if (o->type == TZ_TYPE_MOTH) {
+        /* Native consequence path after a nonlethal Mother Base hit:
+           0x161D0 launch linked defenders, then 0x16504 request a Bee. */
+        (void)launch_mother_defenders(g, slot);
+        (void)request_bee(g, slot);
+    }
+}
+
+static void update_simple_enemy_ai(ZoneGame *g, struct WorldObject *o) {
+    if (!g->player_alive || !o || !o->active) return;
+    const int interval = tz_enemy_chase_interval(o->type);
+    const int cap = tz_enemy_axis_cap(o->type);
+    if (interval <= 0 || cap <= 0 || (o->tick % interval) != 0) return;
+
+    const float dx = shortest_wrapped_delta(o->x, g->player_x, ZONE_LOGICAL_WIDTH);
+    const float dy = shortest_wrapped_delta(o->y, g->player_y, ZONE_LOGICAL_HEIGHT);
+    const int16_t px = (int16_t)lrintf(o->x);
+    const int16_t py = (int16_t)lrintf(o->y);
+    const int16_t tx = (int16_t)lrintf(o->x + dx);
+    const int16_t ty = (int16_t)lrintf(o->y + dy);
+    o->vx = (float)tz_chase_axis_step(px, tx, (int16_t)lrintf(o->vx), (int16_t)cap);
+    o->vy = (float)tz_chase_axis_step(py, ty, (int16_t)lrintf(o->vy), (int16_t)cap);
+    if (o->frame_count == 24) o->frame = frame24_toward(o->x, o->y,
+                                                        g->player_x, g->player_y);
 }
 
 static void spawn_explosion_bank(ZoneGame *g, float x, float y,
@@ -406,6 +578,28 @@ static void destroy_world_object(ZoneGame *g, struct WorldObject *o) {
         spawn_asteroid_payload(g, o);
     } else if (destroyed_type == TZ_TYPE_ROCK) {
         fragment_big_rock(g, o);
+    }
+
+    /* Linked-child cleanup mirrors the recovered object counters used by
+       0x161D0/0x16504. Defender and Bee counts live on their source bases. */
+    if (is_enemy_type(destroyed_type)) {
+        if (o->parent_slot >= 0 && o->parent_slot < ZONE_WORLD_CAP) {
+            struct WorldObject *parent = &g->world[o->parent_slot];
+            if (parent->active) {
+                if (destroyed_type == TZ_TYPE_BEE) {
+                    if (parent->bee_out_count > 0) --parent->bee_out_count;
+                } else {
+                    if (parent->defender_count > 0) --parent->defender_count;
+                }
+            }
+        }
+        if (destroyed_type == TZ_TYPE_BEE &&
+            o->requester_slot >= 0 && o->requester_slot < ZONE_WORLD_CAP) {
+            struct WorldObject *requester = &g->world[o->requester_slot];
+            if (requester->active && requester->bee_request_count > 0) {
+                --requester->bee_request_count;
+            }
+        }
     }
 
     const TzKillAward *award = tz_kill_award_for_type(destroyed_type);
@@ -571,16 +765,27 @@ void zone_game_step(ZoneGame *g, ZoneInput in) {
         if (!o->active) continue;
         ++o->tick;
 
-        /* 0.4 promotes collision-transferred motion into the live simulation.
-           In particular, PPC 0x174E8 swaps the ship/base continuous vectors,
-           so a stationary Mother Base can acquire the ship's incoming motion. */
+        update_simple_enemy_ai(g, o);
+
+        /* Collision-transferred motion plus live enemy motion. The simple
+           swar/bloo/moto/raid families use recovered integer per-axis velocity
+           caps; more complex Bee/Seeker/Rotor vector state arrives in later
+           lifts without changing the world-object interface. */
         if (o->type == TZ_TYPE_ASTE || o->type == TZ_TYPE_ROCK ||
             o->type == TZ_TYPE_STON || o->type == TZ_TYPE_MOTH ||
-            o->type == TZ_TYPE_BASE) {
+            o->type == TZ_TYPE_BASE || is_enemy_type(o->type)) {
             o->x = wrapf(o->x + o->vx * ZONE_MOTION_X_SCALE, ZONE_LOGICAL_WIDTH);
             o->y = wrapf(o->y + o->vy * ZONE_MOTION_Y_SCALE, ZONE_LOGICAL_HEIGHT);
         }
-        if ((o->tick & 7) == 0 && o->frame_count > 0) {
+        /* Do not generically cycle Mother Base/HQ sprite frames.  The recovered
+           PPC moth/base behavior handlers maintain orientation/motion state but
+           do not increment object sprite_frame (+56).  Cycling their 8-frame
+           banks here produced a visible 7.5 Hz wobble/stutter that is not part
+           of the original behavior.  Other passive banks remain on the
+           milestone animation path until their exact frame rules are lifted. */
+        if (!is_enemy_type(o->type) &&
+            o->type != TZ_TYPE_MOTH && o->type != TZ_TYPE_BASE &&
+            (o->tick & 7) == 0 && o->frame_count > 0) {
             o->frame = (o->frame + 1) % o->frame_count;
         }
     }
@@ -605,7 +810,11 @@ void zone_game_step(ZoneGame *g, ZoneInput in) {
 
             p->active = 0;
             o->damage += tz_shot_damage_from_upgrade(0);
-            if (o->damage >= threshold) destroy_world_object(g, o);
+            if (o->damage >= threshold) {
+                destroy_world_object(g, o);
+            } else {
+                world_object_survived_player_shot(g, j);
+            }
         }
     }
 
@@ -866,4 +1075,31 @@ int32_t zone_game_debug_spawn_world(ZoneGame *g, uint32_t fourcc,
 void zone_game_debug_destroy_world(ZoneGame *g, int32_t index) {
     if (!g || index < 0 || index >= ZONE_WORLD_CAP || !g->world[index].active) return;
     destroy_world_object(g, &g->world[index]);
+}
+
+
+uint32_t zone_game_debug_world_subtype(const ZoneGame *g, int32_t index) {
+    if (!g || index < 0 || index >= ZONE_WORLD_CAP || !g->world[index].active) return 0;
+    return g->world[index].subtype;
+}
+
+int32_t zone_game_debug_world_parent(const ZoneGame *g, int32_t index) {
+    if (!g || index < 0 || index >= ZONE_WORLD_CAP || !g->world[index].active) return -1;
+    return g->world[index].parent_slot;
+}
+
+int32_t zone_game_debug_world_defender_count(const ZoneGame *g, int32_t index) {
+    if (!g || index < 0 || index >= ZONE_WORLD_CAP || !g->world[index].active) return 0;
+    return g->world[index].defender_count;
+}
+
+int32_t zone_game_debug_trigger_mother_defense(ZoneGame *g, int32_t index,
+                                               int16_t gate_word, uint16_t batch_word) {
+    if (!g) return 0;
+    return launch_mother_defenders_with_words(g, (int)index, gate_word, batch_word);
+}
+
+int32_t zone_game_debug_request_bee(ZoneGame *g, int32_t requester_index) {
+    if (!g) return -1;
+    return request_bee(g, (int)requester_index);
 }

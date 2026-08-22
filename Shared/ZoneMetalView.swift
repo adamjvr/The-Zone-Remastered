@@ -6,10 +6,19 @@ import SwiftUI
   final class ZoneMTKView: MTKView {
     weak var inputRouter: ZoneInputRouter?
     override var acceptsFirstResponder: Bool { true }
+
     override func viewDidMoveToWindow() {
       super.viewDidMoveToWindow()
       window?.makeFirstResponder(self)
     }
+
+    override func resignFirstResponder() -> Bool {
+      // A window/app focus transition can swallow keyUp events on macOS.
+      // Clear held keyboard actions so no gameplay command remains stuck.
+      inputRouter?.clearKeyboard()
+      return super.resignFirstResponder()
+    }
+
     private func key(_ code: UInt16, pressed: Bool) {
       guard let r = inputRouter else { return }
       switch code {
@@ -23,13 +32,19 @@ import SwiftUI
       default: break
       }
     }
-    override func keyDown(with event: NSEvent) { key(event.keyCode, pressed: true) }
+
+    override func keyDown(with event: NSEvent) {
+      // The router edge-detects pause, but dropping repeated keyDown at the
+      // view boundary avoids needless state churn for every canonical key.
+      if !event.isARepeat { key(event.keyCode, pressed: true) }
+    }
     override func keyUp(with event: NSEvent) { key(event.keyCode, pressed: false) }
     override func flagsChanged(with event: NSEvent) {
       inputRouter?.setKeyboard(.fire, pressed: event.modifierFlags.contains(.option))
       inputRouter?.setKeyboard(.select, pressed: event.modifierFlags.contains(.command))
     }
   }
+
   struct ZoneMetalView: NSViewRepresentable {
     @ObservedObject var host: ZoneGameHost
     func makeNSView(context: Context) -> ZoneMTKView {
@@ -54,6 +69,5 @@ import SwiftUI
     }
     func updateUIView(_ uiView: ZoneMTKView, context: Context) {}
     func makeCoordinator() -> Coordinator { Coordinator() }
-    final class Coordinator { var renderer: ZoneRenderer? }
   }
 #endif
