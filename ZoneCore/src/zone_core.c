@@ -39,6 +39,7 @@ struct Explosion {
 
 struct WorldObject {
     uint8_t active;
+    uint8_t player_contact;
     uint32_t type;
     float x, y, vx, vy;
     int sprite_base;
@@ -59,11 +60,13 @@ struct ZoneGame {
     uint8_t pause_latch;
 
     struct WorldObject world[ZONE_WORLD_CAP];
+    uint64_t world_contact_bits[ZONE_WORLD_CAP];
     struct Projectile projectiles[ZONE_PROJECTILE_CAP];
     struct Explosion explosions[ZONE_EXPLOSION_CAP];
 
     int score, shields, wave, ammo;
     int bases_remaining, enemies_remaining;
+    float shield_strength;
     uint8_t professional;
     uint8_t paused;
 
@@ -132,6 +135,60 @@ static int current_ship_frame(const ZoneGame *g) {
 
 static int current_ship_sprite(const ZoneGame *g) {
     return ZONE_SHIP_BASE + current_ship_frame(g);
+}
+
+static float speed2d(float vx, float vy) {
+    return sqrtf(vx * vx + vy * vy);
+}
+
+static int is_physical_world_type(uint32_t type) {
+    switch (type) {
+        case TZ_TYPE_MOTH:
+        case TZ_TYPE_BASE:
+        case TZ_TYPE_ASTE:
+        case TZ_TYPE_ROCK:
+        case TZ_TYPE_STON:
+        case TZ_TYPE_SWAR:
+        case TZ_TYPE_MOTO:
+        case TZ_TYPE_BLOO:
+        case TZ_TYPE_BEE:
+        case TZ_TYPE_RAID:
+        case TZ_TYPE_SEEK:
+        case TZ_TYPE_ROTO:
+            return 1;
+        default:
+            return 0;
+    }
+}
+
+static int is_wave1_world_exchange_type(uint32_t type) {
+    /* Keep world/world promotion deliberately narrow. These are the body
+       families whose Wave-1 exchange paths have been traced through 0x181A4.
+       Later enemy pair special cases are promoted only as they are lifted. */
+    return type == TZ_TYPE_MOTH || type == TZ_TYPE_BASE || type == TZ_TYPE_ASTE;
+}
+
+static int world_pair_contact(const ZoneGame *g, int a, int b) {
+    return (g->world_contact_bits[a] & (UINT64_C(1) << b)) != 0;
+}
+
+static void set_world_pair_contact(ZoneGame *g, int a, int b, int touching) {
+    const uint64_t abit = UINT64_C(1) << b;
+    const uint64_t bbit = UINT64_C(1) << a;
+    if (touching) {
+        g->world_contact_bits[a] |= abit;
+        g->world_contact_bits[b] |= bbit;
+    } else {
+        g->world_contact_bits[a] &= ~abit;
+        g->world_contact_bits[b] &= ~bbit;
+    }
+}
+
+static void clear_world_contacts_for_slot(ZoneGame *g, int slot) {
+    if (slot < 0 || slot >= ZONE_WORLD_CAP) return;
+    g->world_contact_bits[slot] = 0;
+    const uint64_t bit = ~(UINT64_C(1) << slot);
+    for (int i = 0; i < ZONE_WORLD_CAP; ++i) g->world_contact_bits[i] &= bit;
 }
 
 static int object_visual_spec(uint32_t type, int *base, int *frames, int *side) {
@@ -229,6 +286,7 @@ static void spawn_explosion(ZoneGame *g, float x, float y, int destroyed_side) {
 
 static void destroy_world_object(ZoneGame *g, struct WorldObject *o) {
     if (!o || !o->active) return;
+    const int slot = (int)(o - g->world);
     const TzKillAward *award = tz_kill_award_for_type(o->type);
     if (award) g->score += award->score;
     if (o->type == TZ_TYPE_MOTH || o->type == TZ_TYPE_BASE) {
@@ -241,6 +299,7 @@ static void destroy_world_object(ZoneGame *g, struct WorldObject *o) {
     }
     spawn_explosion(g, o->x, o->y, o->side);
     o->active = 0;
+    clear_world_contacts_for_slot(g, slot);
 }
 
 static void spawn_projectile(ZoneGame *g) {
@@ -277,6 +336,7 @@ void zone_game_reset(ZoneGame *g, uint32_t seed) {
     g->shields = 100;
     g->wave = 1;
     g->ammo = 2;
+    g->shield_strength = 1.0f;
     g->professional = 1;
     populate_wave_1(g);
 }
@@ -330,14 +390,18 @@ void zone_game_step(ZoneGame *g, ZoneInput in) {
         struct WorldObject *o = &g->world[i];
         if (!o->active) continue;
         ++o->tick;
-        if (o->type == TZ_TYPE_ASTE) {
+
+        /* 0.4 promotes collision-transferred motion into the live simulation.
+           In particular, PPC 0x174E8 swaps the ship/base continuous vectors,
+           so a stationary Mother Base can acquire the ship's incoming motion. */
+        if (o->type == TZ_TYPE_ASTE || o->type == TZ_TYPE_ROCK ||
+            o->type == TZ_TYPE_STON || o->type == TZ_TYPE_MOTH ||
+            o->type == TZ_TYPE_BASE) {
             o->x = wrapf(o->x + o->vx * ZONE_MOTION_X_SCALE, ZONE_LOGICAL_WIDTH);
             o->y = wrapf(o->y + o->vy * ZONE_MOTION_Y_SCALE, ZONE_LOGICAL_HEIGHT);
-            if ((o->tick & 7) == 0) o->frame = (o->frame + 1) % o->frame_count;
-        } else if (o->type == TZ_TYPE_MOTH || o->type == TZ_TYPE_BASE) {
-            /* Sprite animation is active; full movement/state machine lands in
-               the following gameplay milestone. */
-            if ((o->tick & 7) == 0) o->frame = (o->frame + 1) % o->frame_count;
+        }
+        if ((o->tick & 7) == 0 && o->frame_count > 0) {
+            o->frame = (o->frame + 1) % o->frame_count;
         }
     }
 
@@ -364,14 +428,70 @@ void zone_game_step(ZoneGame *g, ZoneInput in) {
         }
     }
 
+    /* Player/world collision response. PPC 0x19DFC handles ordinary bodies;
+       PPC 0x174E8 is the dedicated Mother Base/HQ path.  Contact is latched
+       until separation so a single physical impact cannot drain shields once
+       per rendered frame or swap the same velocities back and forth. */
     for (int i = 0; i < ZONE_WORLD_CAP; ++i) {
         struct WorldObject *o = &g->world[i];
-        if (!o->active || o->type != TZ_TYPE_ASTE) continue;
-        if (exact_overlap_ids(current_ship_sprite(g), g->player_x, g->player_y,
-                              o->sprite_base + o->frame, o->x, o->y)) {
-            --g->shields;
+        if (!o->active || !is_physical_world_type(o->type)) continue;
+
+        const int touching = exact_overlap_ids(current_ship_sprite(g),
+                                               g->player_x, g->player_y,
+                                               o->sprite_base + o->frame,
+                                               o->x, o->y);
+        if (!touching) {
+            o->player_contact = 0;
+            continue;
+        }
+        if (o->player_contact) continue;
+        o->player_contact = 1;
+
+        const float speed_before = speed2d(g->player_vx, g->player_vy);
+        int damage = 0;
+        if (o->type == TZ_TYPE_MOTH || o->type == TZ_TYPE_BASE) {
+            damage = tz_player_base_impact_damage(speed_before, g->shield_strength);
+            tz_swap_screen_velocity(&g->player_vx, &g->player_vy, &o->vx, &o->vy);
+        } else {
+            tz_swap_screen_velocity(&g->player_vx, &g->player_vy, &o->vx, &o->vy);
+            const float speed_after = speed2d(g->player_vx, g->player_vy);
+            damage = tz_player_impact_damage(o->type, speed_before,
+                                             speed_after, g->shield_strength);
+        }
+
+        if (damage > 0) {
+            g->shields -= damage;
             if (g->shields < 0) g->shields = 0;
-            audio_push(g, ZONE_AUDIO_COLLISION, g->player_x, g->player_y);
+        }
+        audio_push(g, ZONE_AUDIO_COLLISION, g->player_x, g->player_y);
+    }
+
+    /* World/world physical response, phase 1.  The recovered 0x181A4 pair
+       dispatcher uses the fixed/float exchange helpers for the Wave-1 body
+       combinations (asteroid/base/mother).  ZoneCore stores a single portable
+       velocity representation, so the corresponding response is a direct
+       exchange.  Pair latching prevents overlap ping-pong. */
+    for (int i = 0; i < ZONE_WORLD_CAP; ++i) {
+        struct WorldObject *a = &g->world[i];
+        if (!a->active || !is_wave1_world_exchange_type(a->type)) continue;
+        for (int j = i + 1; j < ZONE_WORLD_CAP; ++j) {
+            struct WorldObject *b = &g->world[j];
+            if (!b->active || !is_wave1_world_exchange_type(b->type)) {
+                set_world_pair_contact(g, i, j, 0);
+                continue;
+            }
+            const int touching = exact_overlap_ids(a->sprite_base + a->frame,
+                                                   a->x, a->y,
+                                                   b->sprite_base + b->frame,
+                                                   b->x, b->y);
+            if (!touching) {
+                set_world_pair_contact(g, i, j, 0);
+                continue;
+            }
+            if (!world_pair_contact(g, i, j)) {
+                set_world_pair_contact(g, i, j, 1);
+                tz_swap_screen_velocity(&a->vx, &a->vy, &b->vx, &b->vy);
+            }
         }
     }
 
@@ -466,4 +586,51 @@ int32_t zone_game_count_type(const ZoneGame *g, uint32_t fourcc) {
 
 void zone_game_debug_set_heading(ZoneGame *g, float heading_degrees) {
     if (g) g->heading = tz_wrap_heading(heading_degrees);
+}
+
+ZoneDebugBodyState zone_game_debug_player_state(const ZoneGame *g) {
+    if (!g) return (ZoneDebugBodyState){0};
+    return (ZoneDebugBodyState){1, TZ_TYPE_SHIP, g->player_x, g->player_y,
+                                g->player_vx, g->player_vy, current_ship_frame(g)};
+}
+
+void zone_game_debug_set_player_state(ZoneGame *g, float x, float y, float vx, float vy) {
+    if (!g) return;
+    g->player_x = wrapf(x, ZONE_LOGICAL_WIDTH);
+    g->player_y = wrapf(y, ZONE_LOGICAL_HEIGHT);
+    g->player_vx = vx;
+    g->player_vy = vy;
+}
+
+int32_t zone_game_debug_find_nth_type(const ZoneGame *g, uint32_t fourcc, int32_t nth) {
+    if (!g || nth < 0) return -1;
+    int32_t seen = 0;
+    for (int32_t i = 0; i < ZONE_WORLD_CAP; ++i) {
+        if (!g->world[i].active || g->world[i].type != fourcc) continue;
+        if (seen++ == nth) return i;
+    }
+    return -1;
+}
+
+ZoneDebugBodyState zone_game_debug_world_state(const ZoneGame *g, int32_t index) {
+    if (!g || index < 0 || index >= ZONE_WORLD_CAP) return (ZoneDebugBodyState){0};
+    const struct WorldObject *o = &g->world[index];
+    return (ZoneDebugBodyState){o->active, o->type, o->x, o->y, o->vx, o->vy, o->frame};
+}
+
+void zone_game_debug_set_world_state(ZoneGame *g, int32_t index,
+                                     float x, float y, float vx, float vy, int32_t frame) {
+    if (!g || index < 0 || index >= ZONE_WORLD_CAP || !g->world[index].active) return;
+    struct WorldObject *o = &g->world[index];
+    o->x = wrapf(x, ZONE_LOGICAL_WIDTH);
+    o->y = wrapf(y, ZONE_LOGICAL_HEIGHT);
+    o->vx = vx;
+    o->vy = vy;
+    if (o->frame_count > 0) {
+        frame %= o->frame_count;
+        if (frame < 0) frame += o->frame_count;
+        o->frame = frame;
+    }
+    o->player_contact = 0;
+    clear_world_contacts_for_slot(g, index);
 }

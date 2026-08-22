@@ -93,4 +93,14 @@ void tz_seek_direct_velocity(TzZoneObjectPPC32 *obj, int16_t target_x, int16_t t
                              const float neg_sin_360[360], const float cos_360[360]);
 bool tz_signed_random_strict_window(int16_t random_word, int16_t low, int16_t high);
 
+/* Recovered collision semantics. */
+void tz_swap_fixed_velocity(TzZoneObjectPPC32 *a, TzZoneObjectPPC32 *b);
+void tz_swap_float_velocity(TzZoneObjectPPC32 *a, TzZoneObjectPPC32 *b);
+void tz_swap_screen_velocity(float *a_vx, float *a_vy, float *b_vx, float *b_vy);
+int16_t tz_player_impact_damage(uint32_t collider_type,
+                                float ship_speed_before,
+                                float ship_speed_after,
+                                float shield_strength);
+int16_t tz_player_base_impact_damage(float ship_speed_before, float shield_strength);
+
 #endif

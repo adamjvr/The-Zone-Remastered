@@ -1,18 +1,15 @@
-The Zone Remastered — Milestone 0.3 overlay
+The Zone Remastered — Milestone 0.4 overlay
 
 Changed/new files:
 - README.md
-- Docs/MILESTONE-0.3.md
-- Docs/ReverseEngineering/Resources/Math_00002_MuzzleOffsets.bin
-- Shared/ZoneContentView.swift
-- Shared/ZoneGameHost.swift
+- Docs/MILESTONE-0.4.md
 - ZoneCore/include/zone_core.h
 - ZoneCore/src/zone_core.c
 - ZoneCore/Recovered/include/thezone_decomp.h
-- ZoneCore/Recovered/src/player.c
+- ZoneCore/Recovered/src/collision.c
 - ZoneCore/tests/test_zone_core.c
 - Tools/test-zonecore.sh
-- Tools/verify-milestone-0.3.command
-- APPLY-MILESTONE-0.3.command
+- Tools/verify-milestone-0.4.command
+- APPLY-MILESTONE-0.4.command
 
 No Xcode project/build-setting files are changed in this milestone.

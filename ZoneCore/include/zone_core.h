@@ -57,6 +57,16 @@ typedef struct ZoneHUDState {
     uint8_t paused;
 } ZoneHUDState;
 
+typedef struct ZoneDebugBodyState {
+    uint8_t active;
+    uint32_t type;
+    float x;
+    float y;
+    float vx;
+    float vy;
+    int32_t frame;
+} ZoneDebugBodyState;
+
 ZoneGame *zone_game_create(uint32_t seed);
 void zone_game_destroy(ZoneGame *game);
 void zone_game_reset(ZoneGame *game, uint32_t seed);
@@ -74,6 +84,12 @@ float zone_game_player_heading(const ZoneGame *game);
 int32_t zone_game_world_object_count(const ZoneGame *game);
 int32_t zone_game_count_type(const ZoneGame *game, uint32_t fourcc);
 void zone_game_debug_set_heading(ZoneGame *game, float heading_degrees);
+ZoneDebugBodyState zone_game_debug_player_state(const ZoneGame *game);
+void zone_game_debug_set_player_state(ZoneGame *game, float x, float y, float vx, float vy);
+int32_t zone_game_debug_find_nth_type(const ZoneGame *game, uint32_t fourcc, int32_t nth);
+ZoneDebugBodyState zone_game_debug_world_state(const ZoneGame *game, int32_t index);
+void zone_game_debug_set_world_state(ZoneGame *game, int32_t index,
+                                     float x, float y, float vx, float vy, int32_t frame);
 
 #ifdef __cplusplus
 }

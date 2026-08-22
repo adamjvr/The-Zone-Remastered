@@ -124,3 +124,18 @@ Run `./Tools/verify-native-targets.command` on a Mac with Xcode to assert these 
 ## Sequoia policy
 
 The installed Xcode SDK and the minimum OS are intentionally separate concepts. A current Xcode may report `SDKROOT = macosx26.x`; the native Mac app remains explicitly pinned to `MACOSX_DEPLOYMENT_TARGET = 15.0` and is developed to remain compatible with macOS 15 Sequoia rather than requiring macOS 26 APIs.
+
+## Milestone 0.4 — Collision Physics, Phase 1
+
+Milestone 0.4 replaces the temporary per-frame shield-loss collision behavior with recovered PowerPC collision semantics.
+
+Implemented in the live ZoneCore:
+
+- exact sprite-pixel contact remains the collision oracle;
+- ordinary player/object impacts exchange momentum and calculate shield damage using the recovered `0x19DFC` type divisors/caps;
+- Mother Base/HQ impact damage uses the recovered `0.75 × ship speed` rule from `0x174E8`, capped at 30;
+- striking a stationary Mother Base transfers the ship's velocity to the base, and the base now moves with that transferred momentum;
+- sustained overlap is contact-latched so one collision does not drain shields or swap velocities on every rendered frame;
+- Wave-1 world bodies exchange velocities on first exact-pixel contact using the semantics of the recovered `0x181A4` paths.
+
+Detailed reverse-engineering notes and formulas are in [`Docs/MILESTONE-0.4.md`](Docs/MILESTONE-0.4.md).
