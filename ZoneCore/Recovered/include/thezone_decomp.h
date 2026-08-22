@@ -97,6 +97,9 @@ bool tz_signed_random_strict_window(int16_t random_word, int16_t low, int16_t hi
 /* Recovered enemy / Mother Base behavior semantics. */
 int16_t tz_enemy_chase_interval(uint32_t type);
 int16_t tz_enemy_axis_cap(uint32_t type);
+bool tz_enemy_should_fire(uint32_t type, int16_t random_word);
+int16_t tz_enemy_fire_active_cap(uint32_t type);
+float tz_enemy_projectile_speed(void);
 bool tz_mother_should_launch_defenders(int16_t random_word);
 int16_t tz_mother_defender_active_cap(bool professional);
 int16_t tz_mother_defender_batch_count(bool professional, uint16_t random_word);

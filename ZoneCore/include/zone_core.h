@@ -10,7 +10,7 @@ extern "C" {
 
 #define ZONE_LOGICAL_WIDTH 640
 #define ZONE_LOGICAL_HEIGHT 480
-#define ZONE_MAX_RENDER_ITEMS 96
+#define ZONE_MAX_RENDER_ITEMS 160
 #define ZONE_MAX_AUDIO_EVENTS 16
 
 typedef struct ZoneGame ZoneGame;
@@ -95,6 +95,7 @@ void zone_game_debug_set_world_state(ZoneGame *game, int32_t index,
                                      float x, float y, float vx, float vy, int32_t frame);
 float zone_game_player_max_speed(const ZoneGame *game);
 int32_t zone_game_active_projectiles(const ZoneGame *game);
+int32_t zone_game_active_hostile_projectiles(const ZoneGame *game);
 uint8_t zone_game_player_alive(const ZoneGame *game);
 void zone_game_debug_set_progression(ZoneGame *game, int32_t shields, int32_t ammo,
                                      float maximum_speed, int32_t wave);
@@ -107,6 +108,7 @@ int32_t zone_game_debug_world_defender_count(const ZoneGame *game, int32_t index
 int32_t zone_game_debug_trigger_mother_defense(ZoneGame *game, int32_t index,
                                                int16_t gate_word, uint16_t batch_word);
 int32_t zone_game_debug_request_bee(ZoneGame *game, int32_t requester_index);
+int32_t zone_game_debug_enemy_fire(ZoneGame *game, int32_t source_index);
 
 #ifdef __cplusplus
 }

@@ -256,6 +256,114 @@ static void test_empire_fighter_live_chase(void) {
 }
 
 
+
+static void test_recovered_hostile_fire_constants(void) {
+    assert(!tz_enemy_should_fire(TZ_TYPE_BLOO, 10000));
+    assert(tz_enemy_should_fire(TZ_TYPE_BLOO, 10001));
+    assert(tz_enemy_should_fire(TZ_TYPE_BLOO, 13499));
+    assert(!tz_enemy_should_fire(TZ_TYPE_BLOO, 13500));
+
+    assert(!tz_enemy_should_fire(TZ_TYPE_BEE, 10000));
+    assert(tz_enemy_should_fire(TZ_TYPE_BEE, 14999));
+    assert(!tz_enemy_should_fire(TZ_TYPE_BEE, 15000));
+
+    assert(!tz_enemy_should_fire(TZ_TYPE_RAID, 10000));
+    assert(tz_enemy_should_fire(TZ_TYPE_RAID, 19999));
+    assert(!tz_enemy_should_fire(TZ_TYPE_RAID, 20000));
+
+    assert(!tz_enemy_should_fire(TZ_TYPE_SEEK, 10000));
+    assert(tz_enemy_should_fire(TZ_TYPE_SEEK, 10999));
+    assert(!tz_enemy_should_fire(TZ_TYPE_SEEK, 11000));
+    assert(!tz_enemy_should_fire(TZ_TYPE_SWAR, 12000));
+
+    assert(tz_enemy_fire_active_cap(TZ_TYPE_BLOO) == 3);
+    assert(tz_enemy_fire_active_cap(TZ_TYPE_BEE) == 3);
+    assert(tz_enemy_fire_active_cap(TZ_TYPE_RAID) == 3);
+    assert(tz_enemy_fire_active_cap(TZ_TYPE_SEEK) == 3);
+    assert(tz_enemy_fire_active_cap(TZ_TYPE_SWAR) == 0);
+    assert(nearly(tz_enemy_projectile_speed(), 11.25f));
+}
+
+static void test_hostile_projectile_cap_and_player_hit(void) {
+    ZoneGame *g = zone_game_create(0xF1AEu);
+    assert(g);
+    park_wave1_except(g, -1, -1);
+    zone_game_debug_set_player_state(g, 300.0f, 240.0f, 0.0f, 0.0f);
+    const int32_t raid = zone_game_debug_spawn_world(
+        g, TZ_TYPE_RAID, 360.0f, 240.0f, 0.0f, 0.0f);
+    assert(raid >= 0);
+
+    assert(zone_game_debug_enemy_fire(g, raid) == 1);
+    assert(zone_game_debug_enemy_fire(g, raid) == 1);
+    assert(zone_game_debug_enemy_fire(g, raid) == 1);
+    assert(zone_game_debug_enemy_fire(g, raid) == 0);
+    assert(zone_game_active_hostile_projectiles(g) == 3);
+    zone_game_destroy(g);
+
+    g = zone_game_create(0xF1AFu);
+    assert(g);
+    park_wave1_except(g, -1, -1);
+    zone_game_debug_set_player_state(g, 300.0f, 240.0f, 0.0f, 0.0f);
+    const int32_t shooter = zone_game_debug_spawn_world(
+        g, TZ_TYPE_RAID, 360.0f, 240.0f, 0.0f, 0.0f);
+    assert(shooter >= 0);
+    assert(zone_game_debug_enemy_fire(g, shooter) == 1);
+    zone_game_debug_destroy_world(g, shooter); /* shot must survive slot release */
+
+    for (int i = 0; i < 30 && zone_game_hud(g).shields == 100; ++i) {
+        zone_game_step(g, (ZoneInput){0});
+    }
+    assert(zone_game_hud(g).shields == 99);
+    assert(zone_game_active_hostile_projectiles(g) == 0);
+    zone_game_destroy(g);
+}
+
+static void test_seeker_near_far_speed_switch(void) {
+    ZoneGame *g = zone_game_create(0x5EE0u);
+    assert(g);
+    park_wave1_except(g, -1, -1);
+    zone_game_debug_set_player_state(g, 400.0f, 240.0f, 0.0f, 0.0f);
+    int32_t seek = zone_game_debug_spawn_world(
+        g, TZ_TYPE_SEEK, 100.0f, 240.0f, 0.0f, 0.0f);
+    assert(seek >= 0);
+    zone_game_step(g, (ZoneInput){0});
+    ZoneDebugBodyState far_state = zone_game_debug_world_state(g, seek);
+    assert(nearly(sqrtf(far_state.vx * far_state.vx + far_state.vy * far_state.vy), 10.0f));
+    zone_game_destroy(g);
+
+    g = zone_game_create(0x5EE1u);
+    assert(g);
+    park_wave1_except(g, -1, -1);
+    zone_game_debug_set_player_state(g, 300.0f, 240.0f, 0.0f, 0.0f);
+    seek = zone_game_debug_spawn_world(
+        g, TZ_TYPE_SEEK, 200.0f, 240.0f, 0.0f, 0.0f);
+    assert(seek >= 0);
+    zone_game_step(g, (ZoneInput){0});
+    ZoneDebugBodyState near_state = zone_game_debug_world_state(g, seek);
+    assert(nearly(sqrtf(near_state.vx * near_state.vx + near_state.vy * near_state.vy),
+                  zone_game_player_max_speed(g)));
+    zone_game_destroy(g);
+}
+
+static void test_fixed_wave_lifecycle_1_to_2(void) {
+    ZoneGame *g = zone_game_create(0x12754u);
+    assert(g);
+    const int32_t moth = zone_game_debug_find_nth_type(g, TZ_TYPE_MOTH, 0);
+    assert(moth >= 0);
+    zone_game_debug_destroy_world(g, moth);
+    assert(zone_game_hud(g).bases == 0);
+    assert(zone_game_hud(g).enemies == 0);
+
+    advance_ticks(g, 91);
+    const ZoneHUDState hud = zone_game_hud(g);
+    assert(hud.wave == 2);
+    assert(hud.bases == 2);
+    assert(hud.enemies == 0);
+    assert(zone_game_count_type(g, TZ_TYPE_ASTE) == 4);
+    assert(zone_game_count_type(g, TZ_TYPE_MOTH) == 2);
+    zone_game_destroy(g);
+}
+
 static void test_mother_base_frame_is_stable(void) {
     ZoneGame *g = zone_game_create(0x14C70u);
     assert(g);
@@ -381,6 +489,10 @@ static void test_world_body_exchange_latch(void) {
 
 int main(void) {
     test_muzzle_table();
+    test_recovered_hostile_fire_constants();
+    test_hostile_projectile_cap_and_player_hit();
+    test_seeker_near_far_speed_switch();
+    test_fixed_wave_lifecycle_1_to_2();
     test_mother_base_frame_is_stable();
     test_recovered_enemy_behavior_constants();
     test_wave1_mother_defense_and_bee_semantics();
@@ -449,6 +561,10 @@ int main(void) {
     puts("Two-base Bee donor/requester linkage + counter repair: PASS");
     puts("Linked Empire Fighter spawn/count cleanup: PASS");
     puts("Live Empire Fighter chase cadence/cap/facing: PASS");
+    puts("Recovered hostile-fire gates/cap/speed: PASS");
+    puts("Hostile projectile player-hit/source cleanup: PASS");
+    puts("Seeker 200-unit near/far speed switch: PASS");
+    puts("Fixed Wave 1 -> Wave 2 lifecycle: PASS");
     puts("Mother Base/HQ sprite-frame stability regression: PASS");
     return 0;
 }

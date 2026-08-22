@@ -1,0 +1,20 @@
+The Zone Remastered — Milestone 0.7 overlay
+
+Changed/new files:
+- README.md
+- Docs/ROADMAP.md
+- Docs/MILESTONE-0.7.md
+- ZoneCore/include/zone_core.h
+- ZoneCore/src/zone_core.c
+- ZoneCore/tests/test_zone_core.c
+- ZoneCore/Recovered/include/thezone_decomp.h
+- ZoneCore/Recovered/src/ai.c
+- Shared/ZoneInputRouter.swift
+- Shared/ZoneMetalView.swift
+- Shared/ZoneContentView.swift
+- Tools/verify-milestone-0.7.command
+- APPLY-MILESTONE-0.7.command
+- MILESTONE-0.7-MANIFEST.txt
+
+No Xcode project, signing, deployment target, macOS/iPadOS target separation,
+or GameController mapping files are changed by this overlay.

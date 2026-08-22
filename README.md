@@ -2,7 +2,7 @@
   <img src="Docs/images/TheZoneRemastered-Ship.png" alt="The Zone Remastered ship" width="720">
 </p>
 
-# The Zone Remastered — Engineering Milestone 0.3
+# The Zone Remastered — Engineering Milestone 0.7
 
 Native Apple remaster built from the reverse-engineered *TheZone* 1.5.1 game logic and assets.
 
@@ -11,6 +11,34 @@ Native Apple remaster built from the reverse-engineered *TheZone* 1.5.1 game log
 - **The Zone macOS** — native macOS application, verified building and running on macOS 15 Sequoia. Keyboard is canonical; controllers exposed by Apple's `GameController.framework` are supported as an alternate input path.
 - **The Zone iPadOS** — separate native iPadOS application target. Apple-supported game controllers are first-class; touch controls remain available when no controller is connected.
 - **ZoneCore** — deterministic portable C engine library, with no AppKit/UIKit/Metal dependencies.
+
+## Milestone 0.7 — Hostile Combat, Fixed-Wave Lifecycle & Keyboard Remapping
+
+Milestone 0.7 follows the existing Classic-fidelity roadmap while adding one focused macOS product feature requested during play-testing:
+
+- implements the recovered hostile `fire` projectile base speed of **11.25**;
+- promotes the recovered strict signed-Random firing windows for Bloody, Bee, Raider and Seeker;
+- enforces the recovered **3 active hostile shots per shooter** limit;
+- adds exact-pixel hostile-shot collision with the player and source-counter cleanup;
+- activates Bee pursuit and Seeker's recovered **200-unit** near/far speed switch;
+- connects direct fixed-wave population data through waves **1–18** and adds the combat-objective wave-clear lifecycle;
+- advances a completed Wave 1 into the recovered Wave-2 population after a short isolated transition delay;
+- adds a native macOS **Keyboard Controls** panel to the pause menu;
+- supports click-to-rebind, automatic conflict swapping, persistent `UserDefaults` storage, and **Reset Defaults** back to the Classic keyboard layout.
+
+Keyboard remapping is deliberately outside ZoneCore. The engine continues to receive the same semantic actions (`turn`, `thrust`, `fire`, etc.), so changing a Mac key cannot alter Classic gameplay behavior or the iPad/controller architecture.
+
+Detailed notes: [`Docs/MILESTONE-0.7.md`](Docs/MILESTONE-0.7.md).
+
+Project status and upcoming phases are tracked in [`Docs/ROADMAP.md`](Docs/ROADMAP.md).
+
+## Milestone 0.6 — Enemy Life & Real Wave 1
+
+Milestone 0.6 established the first live enemy ecosystem: recovered Mother Base defender launch behavior, linked Empire Fighters, Bee donor/requester relationships, and the pause/Mother-Base stability fixes finalized in 0.6.2.
+
+## Milestone 0.5 — Destruction, Pickups & Progression
+
+Milestone 0.5 established the recovered progression/destruction chain: initial max speed 25, VELO/AMMO/OSCI effects, asteroid payloads, Big Rock fragmentation structure, and the first ship death/respawn lifecycle. See [`Docs/MILESTONE-0.5.md`](Docs/MILESTONE-0.5.md).
 
 ## Milestone 0.3 — Real Zone, phase 1
 
@@ -62,6 +90,8 @@ Native command-line checks/builds:
 
 ## Canonical macOS controls
 
+The Classic defaults remain:
+
 - Left/Right arrows: rotate
 - Space: thrust
 - Option: fire
@@ -69,6 +99,8 @@ Native command-line checks/builds:
 - Command: select/use
 - Escape: pause
 - Keypad decimal: classic save action hook
+
+While paused on macOS, choose **Keyboard Controls**, click any binding, and press its replacement key. Bindings persist between launches. **Reset Defaults** restores the Classic layout. Option and Command are treated as modifier families, so either physical side works when those actions retain those bindings.
 
 ## Controller policy
 
@@ -98,7 +130,7 @@ The source art remains untouched; generated icon PNGs are derived assets.
 
 ## Accuracy status
 
-Milestone 0.3 is the first transition from the engineering sandbox into recovered game population. It is not yet a claim of 100% behavior parity. Exact sprite collision, object/save layouts, damage tables, fixed wave presets, several AI routines and core motion semantics have been recovered. Remaining AI/collision/wave/projectile/equipment state machines are being lifted into `ZoneCore/Recovered` and will replace temporary milestone logic subsystem-by-subsystem.
+Milestone 0.7 is the current recovered-gameplay build. It is not yet a claim of 100% behavior parity. Exact sprite collision, object/save layouts, damage tables, fixed wave presets, several AI routines and core motion semantics have been recovered. Remaining AI/collision/wave/projectile/equipment state machines are being lifted into `ZoneCore/Recovered` and will replace temporary milestone logic subsystem-by-subsystem.
 
 ## Asset completeness
 

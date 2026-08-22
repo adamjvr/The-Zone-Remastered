@@ -82,6 +82,43 @@ int16_t tz_enemy_axis_cap(uint32_t type) {
     }
 }
 
+/* Hostile-fire gates recovered from the PPC type handlers. These use the
+ * original signed Random() word and strict inequalities. The shared fire tail
+ * refuses a new shot once the shooter's +72 active-fire counter reaches 3.
+ *
+ *   bloo: (10000,13500)
+ *   bee!: (10000,15000)
+ *   raid: (10000,20000)
+ *   seek: (10000,11000)
+ *
+ * The `fire` object constructor at 0x107B4 uses vector magnitude 11.25.
+ */
+bool tz_enemy_should_fire(uint32_t type, int16_t random_word) {
+    switch (type) {
+        case TZ_TYPE_BLOO: return tz_signed_random_strict_window(random_word, 10000, 13500);
+        case TZ_TYPE_BEE:  return tz_signed_random_strict_window(random_word, 10000, 15000);
+        case TZ_TYPE_RAID: return tz_signed_random_strict_window(random_word, 10000, 20000);
+        case TZ_TYPE_SEEK: return tz_signed_random_strict_window(random_word, 10000, 11000);
+        default: return false;
+    }
+}
+
+int16_t tz_enemy_fire_active_cap(uint32_t type) {
+    switch (type) {
+        case TZ_TYPE_BLOO:
+        case TZ_TYPE_BEE:
+        case TZ_TYPE_RAID:
+        case TZ_TYPE_SEEK:
+            return 3;
+        default:
+            return 0;
+    }
+}
+
+float tz_enemy_projectile_speed(void) {
+    return 11.25f;
+}
+
 /* Mother Base hit-reaction routine at PPC 0x161D0. The cached signed Random
  * value must lie strictly inside (10000,30000). Professional mode allows five
  * simultaneously linked defenders and launches 2..5 per successful request;

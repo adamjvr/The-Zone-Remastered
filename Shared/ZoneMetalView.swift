@@ -3,6 +3,39 @@ import SwiftUI
 
 #if os(macOS)
   import AppKit
+
+  /// Shared by the Metal gameplay view and the pause-menu key-capture view so
+  /// remapping never creates a second interpretation of macOS keyboard input.
+  enum ZoneMacKeyboardEventRouter {
+    static func modifierPressed(keyCode: UInt16, flags: NSEvent.ModifierFlags) -> Bool {
+      switch keyCode {
+      case 54, 55: return flags.contains(.command)
+      case 56, 60: return flags.contains(.shift)
+      case 58, 61: return flags.contains(.option)
+      case 59, 62: return flags.contains(.control)
+      case 57: return flags.contains(.capsLock)
+      default: return false
+      }
+    }
+
+    static func keyDown(_ event: NSEvent, router: ZoneInputRouter) {
+      if event.isARepeat { return }
+      if router.captureRebindKey(event.keyCode) { return }
+      router.setKeyboardKey(event.keyCode, pressed: true)
+    }
+
+    static func keyUp(_ event: NSEvent, router: ZoneInputRouter) {
+      if router.isRebinding { return }
+      router.setKeyboardKey(event.keyCode, pressed: false)
+    }
+
+    static func flagsChanged(_ event: NSEvent, router: ZoneInputRouter) {
+      let pressed = modifierPressed(keyCode: event.keyCode, flags: event.modifierFlags)
+      if pressed && router.captureRebindKey(event.keyCode) { return }
+      if !router.isRebinding { router.setKeyboardKey(event.keyCode, pressed: pressed) }
+    }
+  }
+
   final class ZoneMTKView: MTKView {
     weak var inputRouter: ZoneInputRouter?
     override var acceptsFirstResponder: Bool { true }
@@ -13,47 +46,44 @@ import SwiftUI
     }
 
     override func resignFirstResponder() -> Bool {
-      // A window/app focus transition can swallow keyUp events on macOS.
-      // Clear held keyboard actions so no gameplay command remains stuck.
       inputRouter?.clearKeyboard()
       return super.resignFirstResponder()
     }
 
-    private func key(_ code: UInt16, pressed: Bool) {
-      guard let r = inputRouter else { return }
-      switch code {
-      case 123: r.setKeyboard(.left, pressed: pressed)
-      case 124: r.setKeyboard(.right, pressed: pressed)
-      case 49: r.setKeyboard(.thrust, pressed: pressed)
-      case 126: r.setKeyboard(.equipmentUp, pressed: pressed)
-      case 125: r.setKeyboard(.equipmentDown, pressed: pressed)
-      case 53: r.setKeyboard(.pause, pressed: pressed)
-      case 65: r.setKeyboard(.save, pressed: pressed)  // keypad decimal
-      default: break
-      }
+    override func keyDown(with event: NSEvent) {
+      guard let inputRouter else { return }
+      ZoneMacKeyboardEventRouter.keyDown(event, router: inputRouter)
     }
 
-    override func keyDown(with event: NSEvent) {
-      // The router edge-detects pause, but dropping repeated keyDown at the
-      // view boundary avoids needless state churn for every canonical key.
-      if !event.isARepeat { key(event.keyCode, pressed: true) }
+    override func keyUp(with event: NSEvent) {
+      guard let inputRouter else { return }
+      ZoneMacKeyboardEventRouter.keyUp(event, router: inputRouter)
     }
-    override func keyUp(with event: NSEvent) { key(event.keyCode, pressed: false) }
+
     override func flagsChanged(with event: NSEvent) {
-      inputRouter?.setKeyboard(.fire, pressed: event.modifierFlags.contains(.option))
-      inputRouter?.setKeyboard(.select, pressed: event.modifierFlags.contains(.command))
+      guard let inputRouter else { return }
+      ZoneMacKeyboardEventRouter.flagsChanged(event, router: inputRouter)
     }
   }
 
   struct ZoneMetalView: NSViewRepresentable {
     @ObservedObject var host: ZoneGameHost
+
     func makeNSView(context: Context) -> ZoneMTKView {
       let v = ZoneMTKView()
       v.inputRouter = host.input
       context.coordinator.renderer = ZoneRenderer(view: v, host: host)
       return v
     }
-    func updateNSView(_ nsView: ZoneMTKView, context: Context) {}
+
+    func updateNSView(_ nsView: ZoneMTKView, context: Context) {
+      // The pause menu temporarily owns first responder for key capture. Give
+      // keyboard control back to gameplay as soon as the game resumes.
+      if !host.hud.paused && nsView.window?.firstResponder !== nsView {
+        DispatchQueue.main.async { nsView.window?.makeFirstResponder(nsView) }
+      }
+    }
+
     func makeCoordinator() -> Coordinator { Coordinator() }
     final class Coordinator { var renderer: ZoneRenderer? }
   }
@@ -69,5 +99,6 @@ import SwiftUI
     }
     func updateUIView(_ uiView: ZoneMTKView, context: Context) {}
     func makeCoordinator() -> Coordinator { Coordinator() }
+    final class Coordinator { var renderer: ZoneRenderer? }
   }
 #endif

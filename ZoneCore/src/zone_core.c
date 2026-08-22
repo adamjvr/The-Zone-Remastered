@@ -9,7 +9,8 @@
 #define ZONE_PI 3.14159265358979323846f
 #define ZONE_SHIP_BASE 1000
 #define ZONE_SHOT_BASE 148
-#define ZONE_PROJECTILE_CAP 16
+#define ZONE_FIRE_SPRITE 152
+#define ZONE_PROJECTILE_CAP 48
 #define ZONE_EXPLOSION_CAP 12
 #define ZONE_WORLD_CAP 64
 
@@ -20,12 +21,15 @@
 #define ZONE_PROJECTILE_SPEED 15.0f
 #define ZONE_FIRE_COOLDOWN_TICKS 8
 #define ZONE_RESPAWN_TICKS 120
+#define ZONE_WAVE_CLEAR_TICKS 90
 
 struct Projectile {
     uint8_t active;
+    uint8_t hostile;
     float x, y, vx, vy;
     int life;
     int sprite;
+    int source_slot;
 };
 
 struct Explosion {
@@ -58,6 +62,7 @@ struct WorldObject {
     int defender_count;
     int bee_out_count;
     int bee_request_count;
+    int hostile_shots;
 };
 
 struct ZoneGame {
@@ -82,6 +87,7 @@ struct ZoneGame {
     int equipment_upgrade_a;
     int equipment_upgrade_b;
     int respawn_ticks;
+    int wave_clear_ticks;
     uint8_t professional;
     uint8_t player_alive;
     uint8_t paused;
@@ -125,7 +131,17 @@ static uint16_t rng_0_100(ZoneGame *g) {
 
 static int active_projectile_count(const ZoneGame *g) {
     int n = 0;
-    for (int i = 0; i < ZONE_PROJECTILE_CAP; ++i) n += !!g->projectiles[i].active;
+    for (int i = 0; i < ZONE_PROJECTILE_CAP; ++i) {
+        n += g->projectiles[i].active && !g->projectiles[i].hostile;
+    }
+    return n;
+}
+
+static int active_hostile_projectile_count(const ZoneGame *g) {
+    int n = 0;
+    for (int i = 0; i < ZONE_PROJECTILE_CAP; ++i) {
+        n += g->projectiles[i].active && g->projectiles[i].hostile;
+    }
     return n;
 }
 
@@ -309,44 +325,84 @@ static struct WorldObject *spawn_world_object_at(ZoneGame *g, uint32_t type,
     return o;
 }
 
-static void populate_wave_1(ZoneGame *g) {
+static void populate_fixed_wave(ZoneGame *g, unsigned wave) {
     memset(g->world, 0, sizeof(g->world));
-    const TzWavePreset *preset = tz_wave_preset(g->professional != 0, 1);
-    const unsigned asteroids = tz_initial_asteroid_count(1);
+    memset(g->world_contact_bits, 0, sizeof(g->world_contact_bits));
+    memset(g->projectiles, 0, sizeof(g->projectiles));
+    g->bases_remaining = 0;
+    g->enemies_remaining = 0;
+    g->bee_limit = 0;
+    g->wave_clear_ticks = 0;
 
-    for (unsigned i = 0; i < asteroids; ++i) (void)spawn_world_object(g, TZ_TYPE_ASTE);
-    if (preset) {
-        int bloo_left = preset->bloo_subtype_quota;
-        for (int i = 0; i < preset->moth_count; ++i) {
-            struct WorldObject *m = spawn_world_object(g, TZ_TYPE_MOTH);
-            if (m) {
-                /* PPC 0x13328 assigns a defender class to each Mother Base.
-                   Professional Wave 1 has quota 0, so its sole Mother Base
-                   launches Empire Fighters ('swar') when attacked. */
-                if (bloo_left > 0) {
-                    m->subtype = TZ_TYPE_BLOO;
-                    --bloo_left;
-                } else {
-                    m->subtype = TZ_TYPE_SWAR;
-                }
-            }
-        }
-        for (int i = 0; i < preset->base_count; ++i) {
-            struct WorldObject *b = spawn_world_object(g, TZ_TYPE_BASE);
-            if (b) {
-                if (bloo_left > 0) {
-                    b->subtype = TZ_TYPE_BLOO;
-                    --bloo_left;
-                } else {
-                    b->subtype = TZ_TYPE_MOTO;
-                }
-            }
-        }
-        g->bases_remaining = preset->moth_count + preset->base_count;
-        g->enemies_remaining = preset->raid_count + preset->seek_count;
-        g->bee_limit = preset->bee_limit;
+    const TzWavePreset *preset = tz_wave_preset(g->professional != 0, wave);
+    if (!preset) return;
+
+    const unsigned asteroids = tz_initial_asteroid_count(wave);
+    for (unsigned i = 0; i < asteroids; ++i) {
+        (void)spawn_world_object(g, TZ_TYPE_ASTE);
     }
+
+    int bloo_left = preset->bloo_subtype_quota;
+    int mother_slots[18];
+    int mother_count = 0;
+
+    for (int i = 0; i < preset->moth_count; ++i) {
+        struct WorldObject *m = spawn_world_object(g, TZ_TYPE_MOTH);
+        if (!m) continue;
+        if (mother_count < (int)(sizeof(mother_slots) / sizeof(mother_slots[0]))) {
+            mother_slots[mother_count++] = (int)(m - g->world);
+        }
+
+        /* PPC 0x13328 assigns the base's defender class while the wave is
+           constructed.  The first quota entries become Bloody defenders;
+           remaining Mother Bases use Empire Fighters. */
+        if (bloo_left > 0) {
+            m->subtype = TZ_TYPE_BLOO;
+            --bloo_left;
+        } else {
+            m->subtype = TZ_TYPE_SWAR;
+        }
+        ++g->bases_remaining;
+    }
+
+    for (int i = 0; i < preset->base_count; ++i) {
+        struct WorldObject *b = spawn_world_object(g, TZ_TYPE_BASE);
+        if (!b) continue;
+        if (bloo_left > 0) {
+            b->subtype = TZ_TYPE_BLOO;
+            --bloo_left;
+        } else {
+            b->subtype = TZ_TYPE_MOTO;
+        }
+        ++g->bases_remaining;
+    }
+
+    for (int i = 0; i < preset->raid_count; ++i) {
+        if (spawn_world_object(g, TZ_TYPE_RAID)) ++g->enemies_remaining;
+    }
+    for (int i = 0; i < preset->seek_count; ++i) {
+        if (spawn_world_object(g, TZ_TYPE_SEEK)) ++g->enemies_remaining;
+    }
+
+    /* The fixed wave table explicitly links the first N Rotors to Mother
+       Bases.  Their full orbit/attack/return state machine remains a later
+       lift, but the recovered population and parent relationship are live. */
+    const int rotor_count =
+        preset->rotor_link_count < mother_count ? preset->rotor_link_count : mother_count;
+    for (int i = 0; i < rotor_count; ++i) {
+        const int parent_slot = mother_slots[i];
+        struct WorldObject *parent = &g->world[parent_slot];
+        struct WorldObject *rotor = spawn_world_object_at(
+            g, TZ_TYPE_ROTO, parent->x + 40.0f, parent->y, 0.0f, 0.0f);
+        if (rotor) {
+            rotor->parent_slot = parent_slot;
+            ++g->enemies_remaining;
+        }
+    }
+
+    g->bee_limit = preset->bee_limit;
 }
+
 
 
 static float shortest_wrapped_delta(float from, float to, float extent) {
@@ -482,6 +538,110 @@ static void update_simple_enemy_ai(ZoneGame *g, struct WorldObject *o) {
                                                         g->player_x, g->player_y);
 }
 
+
+static void update_bee_ai(ZoneGame *g, struct WorldObject *o) {
+    if (!g->player_alive || !o || !o->active || o->type != TZ_TYPE_BEE) return;
+    const float dx = shortest_wrapped_delta(o->x, g->player_x, ZONE_LOGICAL_WIDTH);
+    const float dy = shortest_wrapped_delta(o->y, g->player_y, ZONE_LOGICAL_HEIGHT);
+    const float mag = sqrtf(dx * dx + dy * dy);
+    if (mag <= 0.0001f) return;
+
+    const float ux = dx / mag;
+    const float uy = dy / mag;
+    const float old_speed = speed2d(o->vx, o->vy);
+    const float candidate_vx = o->vx + ux;
+    const float candidate_vy = o->vy + uy;
+    const float candidate_speed = speed2d(candidate_vx, candidate_vy);
+    if (candidate_speed <= g->player_max_speed || candidate_speed < old_speed) {
+        o->vx = candidate_vx;
+        o->vy = candidate_vy;
+    } else {
+        o->vx = ux * g->player_max_speed;
+        o->vy = uy * g->player_max_speed;
+    }
+    o->frame = frame24_toward(o->x, o->y, g->player_x, g->player_y);
+}
+
+static void update_seeker_ai(ZoneGame *g, struct WorldObject *o) {
+    if (!g->player_alive || !o || !o->active || o->type != TZ_TYPE_SEEK) return;
+    const float dx = shortest_wrapped_delta(o->x, g->player_x, ZONE_LOGICAL_WIDTH);
+    const float dy = shortest_wrapped_delta(o->y, g->player_y, ZONE_LOGICAL_HEIGHT);
+    const float dist_sq = dx * dx + dy * dy;
+    const float mag = sqrtf(dist_sq);
+    if (mag <= 0.0001f) return;
+
+    /* Recovered seek handler 0x15944 switches at radius 200.  Fresh-game
+       cruise speed is 10; inside the radius it uses the runtime maximum. */
+    const float speed = dist_sq <= 40000.0f ? g->player_max_speed : 10.0f;
+    o->vx = (dx / mag) * speed;
+    o->vy = (dy / mag) * speed;
+    o->frame = frame24_toward(o->x, o->y, g->player_x, g->player_y);
+}
+
+static void update_complex_enemy_ai(ZoneGame *g, struct WorldObject *o) {
+    if (!o || !o->active) return;
+    if (o->type == TZ_TYPE_BEE) update_bee_ai(g, o);
+    else if (o->type == TZ_TYPE_SEEK) update_seeker_ai(g, o);
+}
+
+static void release_projectile_source(ZoneGame *g, struct Projectile *p) {
+    if (!p || !p->hostile || p->source_slot < 0 || p->source_slot >= ZONE_WORLD_CAP) return;
+    struct WorldObject *source = &g->world[p->source_slot];
+    if (source->active && source->hostile_shots > 0) --source->hostile_shots;
+    p->source_slot = -1;
+}
+
+static void deactivate_projectile(ZoneGame *g, struct Projectile *p) {
+    if (!p || !p->active) return;
+    release_projectile_source(g, p);
+    p->active = 0;
+}
+
+static int spawn_hostile_projectile(ZoneGame *g, int source_slot) {
+    if (!g->player_alive || source_slot < 0 || source_slot >= ZONE_WORLD_CAP) return 0;
+    struct WorldObject *source = &g->world[source_slot];
+    if (!source->active) return 0;
+
+    const int cap = tz_enemy_fire_active_cap(source->type);
+    if (cap <= 0 || source->hostile_shots >= cap) return 0;
+
+    const float dx = shortest_wrapped_delta(source->x, g->player_x, ZONE_LOGICAL_WIDTH);
+    const float dy = shortest_wrapped_delta(source->y, g->player_y, ZONE_LOGICAL_HEIGHT);
+    const float mag = sqrtf(dx * dx + dy * dy);
+    if (mag <= 0.0001f) return 0;
+
+    for (int i = 0; i < ZONE_PROJECTILE_CAP; ++i) {
+        struct Projectile *p = &g->projectiles[i];
+        if (p->active) continue;
+        p->active = 1;
+        p->hostile = 1;
+        p->source_slot = source_slot;
+        p->x = source->x;
+        p->y = source->y;
+        const float fire_speed = tz_enemy_projectile_speed();
+        p->vx = (dx / mag) * fire_speed;
+        p->vy = (dy / mag) * fire_speed;
+        p->life = 120; /* lifetime still isolated pending the action-routine lift */
+        p->sprite = ZONE_FIRE_SPRITE;
+        ++source->hostile_shots;
+        audio_push(g, ZONE_AUDIO_FIRE, p->x, p->y);
+        return 1;
+    }
+    return 0;
+}
+
+static void update_enemy_fire(ZoneGame *g, int slot) {
+    if (!g->player_alive || slot < 0 || slot >= ZONE_WORLD_CAP) return;
+    struct WorldObject *o = &g->world[slot];
+    const int cap = o->active ? tz_enemy_fire_active_cap(o->type) : 0;
+    if (cap <= 0 || o->hostile_shots >= cap) return;
+
+    const int16_t random_word = (int16_t)(rng_next(g) & 0xFFFFu);
+    if (tz_enemy_should_fire(o->type, random_word)) {
+        (void)spawn_hostile_projectile(g, slot);
+    }
+}
+
 static void spawn_explosion_bank(ZoneGame *g, float x, float y,
                                  int base, int frames, int side) {
     for (int i = 0; i < ZONE_EXPLOSION_CAP; ++i) {
@@ -602,6 +762,15 @@ static void destroy_world_object(ZoneGame *g, struct WorldObject *o) {
         }
     }
 
+    /* Enemy fire remains alive if its shooter dies, but must no longer
+       reference a world slot that can be recycled for a different object. */
+    for (int i = 0; i < ZONE_PROJECTILE_CAP; ++i) {
+        if (g->projectiles[i].active && g->projectiles[i].hostile &&
+            g->projectiles[i].source_slot == slot) {
+            g->projectiles[i].source_slot = -1;
+        }
+    }
+
     const TzKillAward *award = tz_kill_award_for_type(destroyed_type);
     if (award) g->score += award->score;
     if (destroyed_type == TZ_TYPE_MOTH || destroyed_type == TZ_TYPE_BASE) {
@@ -680,6 +849,8 @@ static int spawn_projectile(ZoneGame *g) {
 
             struct Projectile *p = &g->projectiles[i];
             p->active = 1;
+            p->hostile = 0;
+            p->source_slot = -1;
             p->x = wrapf(g->player_x + (float)muzzle.x, ZONE_LOGICAL_WIDTH);
             p->y = wrapf(g->player_y + (float)muzzle.y, ZONE_LOGICAL_HEIGHT);
             p->vx = dx * ZONE_PROJECTILE_SPEED;
@@ -708,7 +879,7 @@ void zone_game_reset(ZoneGame *g, uint32_t seed) {
     g->player_max_speed = tz_initial_player_max_speed();
     g->professional = 1;
     g->player_alive = 1;
-    populate_wave_1(g);
+    populate_fixed_wave(g, 1);
 }
 
 ZoneGame *zone_game_create(uint32_t seed) {
@@ -766,6 +937,8 @@ void zone_game_step(ZoneGame *g, ZoneInput in) {
         ++o->tick;
 
         update_simple_enemy_ai(g, o);
+        update_complex_enemy_ai(g, o);
+        update_enemy_fire(g, i);
 
         /* Collision-transferred motion plus live enemy motion. The simple
            swar/bloo/moto/raid families use recovered integer per-axis velocity
@@ -796,7 +969,22 @@ void zone_game_step(ZoneGame *g, ZoneInput in) {
         p->x = wrapf(p->x + p->vx * ZONE_MOTION_X_SCALE, ZONE_LOGICAL_WIDTH);
         p->y = wrapf(p->y + p->vy * ZONE_MOTION_Y_SCALE, ZONE_LOGICAL_HEIGHT);
         if (--p->life <= 0) {
-            p->active = 0;
+            deactivate_projectile(g, p);
+            continue;
+        }
+
+        if (p->hostile) {
+            if (g->player_alive &&
+                exact_overlap_ids(p->sprite, p->x, p->y,
+                                  current_ship_sprite(g), g->player_x, g->player_y)) {
+                deactivate_projectile(g, p);
+                /* The recovered `fire` collision branch applies one damage
+                   unit.  Shield-strength modifiers remain in the later
+                   equipment lift; base hostile fire therefore costs 1 here. */
+                if (g->shields > 0) --g->shields;
+                if (g->shields <= 0) begin_player_death(g);
+                audio_push(g, ZONE_AUDIO_COLLISION, g->player_x, g->player_y);
+            }
             continue;
         }
 
@@ -808,7 +996,7 @@ void zone_game_step(ZoneGame *g, ZoneInput in) {
             if (!exact_overlap_ids(p->sprite, p->x, p->y,
                                    o->sprite_base + o->frame, o->x, o->y)) continue;
 
-            p->active = 0;
+            deactivate_projectile(g, p);
             o->damage += tz_shot_damage_from_upgrade(0);
             if (o->damage >= threshold) {
                 destroy_world_object(g, o);
@@ -896,6 +1084,24 @@ void zone_game_step(ZoneGame *g, ZoneInput in) {
                 tz_swap_screen_velocity(&a->vx, &a->vy, &b->vx, &b->vy);
             }
         }
+    }
+
+    /* Recovered fixed-wave population is now connected to a live lifecycle.
+       Asteroids and pickups are not part of the clear condition: the tracked
+       base/enemy counters are the combat objectives. */
+    if (g->bases_remaining == 0 && g->enemies_remaining == 0) {
+        if (g->wave < 18) {
+            if (g->wave_clear_ticks == 0) g->wave_clear_ticks = ZONE_WAVE_CLEAR_TICKS;
+            else if (--g->wave_clear_ticks == 0) {
+                ++g->wave;
+                populate_fixed_wave(g, (unsigned)g->wave);
+            }
+        } else {
+            /* Procedural wave 19+ is intentionally still a roadmap item. */
+            g->wave_clear_ticks = -1;
+        }
+    } else {
+        g->wave_clear_ticks = 0;
     }
 
     for (int i = 0; i < ZONE_EXPLOSION_CAP; ++i) {
@@ -1102,4 +1308,13 @@ int32_t zone_game_debug_trigger_mother_defense(ZoneGame *g, int32_t index,
 int32_t zone_game_debug_request_bee(ZoneGame *g, int32_t requester_index) {
     if (!g) return -1;
     return request_bee(g, (int)requester_index);
+}
+
+int32_t zone_game_active_hostile_projectiles(const ZoneGame *g) {
+    return g ? active_hostile_projectile_count(g) : 0;
+}
+
+int32_t zone_game_debug_enemy_fire(ZoneGame *g, int32_t source_index) {
+    if (!g) return 0;
+    return spawn_hostile_projectile(g, (int)source_index);
 }
