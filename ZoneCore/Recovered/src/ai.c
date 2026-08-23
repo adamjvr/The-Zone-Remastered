@@ -90,6 +90,7 @@ int16_t tz_enemy_axis_cap(uint32_t type) {
  *   bee!: (10000,15000)
  *   raid: (10000,20000)
  *   seek: (10000,11000)
+ *   roto: (10000,15000)
  *
  * The `fire` object constructor at 0x107B4 uses vector magnitude 11.25.
  */
@@ -99,6 +100,7 @@ bool tz_enemy_should_fire(uint32_t type, int16_t random_word) {
         case TZ_TYPE_BEE:  return tz_signed_random_strict_window(random_word, 10000, 15000);
         case TZ_TYPE_RAID: return tz_signed_random_strict_window(random_word, 10000, 20000);
         case TZ_TYPE_SEEK: return tz_signed_random_strict_window(random_word, 10000, 11000);
+        case TZ_TYPE_ROTO: return tz_signed_random_strict_window(random_word, 10000, 15000);
         default: return false;
     }
 }
@@ -109,6 +111,7 @@ int16_t tz_enemy_fire_active_cap(uint32_t type) {
         case TZ_TYPE_BEE:
         case TZ_TYPE_RAID:
         case TZ_TYPE_SEEK:
+        case TZ_TYPE_ROTO:
             return 3;
         default:
             return 0;
@@ -169,3 +172,19 @@ float tz_mother_direct_speed(float distance_squared, float maximum_speed) {
 int16_t tz_hq_fire_interval(void) {
     return 15;
 }
+
+
+/* Rotor guard state machine constants recovered from PPC 0x15BC8..0x16124.
+ * Packed-data +2936 is the squared 100-unit player proximity trigger.
+ * +2952 is the 40-unit orbit/return radius. State 1's leash is
+ * (zone_extent / packed-double +2928)^2; +2928 is 4.0, yielding 160 units
+ * for the 640-unit Classic zone. Fresh-game speed globals are generated from
+ * maximum speed 25 using 0.4/0.6/0.8 multipliers; Rotor attack uses the 0.4
+ * global (10) and return uses the 0.8 global (20).
+ */
+float tz_rotor_orbit_radius(void) { return 40.0f; }
+float tz_rotor_attack_radius_squared(void) { return 10000.0f; }
+float tz_rotor_leash_radius(float zone_extent) { return zone_extent / 4.0f; }
+float tz_rotor_attack_speed(void) { return 10.0f; }
+float tz_rotor_return_speed(void) { return 20.0f; }
+int16_t tz_rotor_orbit_heading_step(void) { return 4; }

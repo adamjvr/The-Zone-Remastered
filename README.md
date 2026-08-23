@@ -2,7 +2,7 @@
   <img src="Docs/images/TheZoneRemastered-Ship.png" alt="The Zone Remastered ship" width="720">
 </p>
 
-# The Zone Remastered — Engineering Milestone 0.9
+# The Zone Remastered — Engineering Milestone 1.0
 
 Native Apple remaster built from the reverse-engineered *TheZone* 1.5.1 game logic and assets.
 
@@ -11,6 +11,25 @@ Native Apple remaster built from the reverse-engineered *TheZone* 1.5.1 game log
 - **The Zone macOS** — native macOS application, verified building and running on macOS 15 Sequoia. Keyboard is canonical; controllers exposed by Apple's `GameController.framework` are supported as an alternate input path.
 - **The Zone iPadOS** — separate native iPadOS application target. Apple-supported game controllers are first-class; touch controls remain available when no controller is connected.
 - **ZoneCore** — deterministic portable C engine library, with no AppKit/UIKit/Metal dependencies.
+
+## Milestone 1.0 — Rotor Orbit, Attack & Return AI
+
+Milestone 1.0 promotes the linked Rotor guard from a fixed-wave population object into its recovered Classic behavior state machine.
+
+- promotes the Rotor handler at PPC `0x15BC8..0x16124` with live byte `+131` states **0 = orbit**, **1 = attack**, and **2 = return**;
+- restores the recovered **40-unit** guard orbit around the linked Mother Base or Headquarters and the **4-degree** orbit-heading increment;
+- wakes an orbiting Rotor when the player enters the recovered **100-unit** proximity radius;
+- attack state pursues at recovered speed **10** and switches to return when the Rotor crosses the recovered **160-unit** parent leash in the 640-unit Classic zone;
+- return state flies toward the parent at recovered speed **20** and drops back into orbit inside the **40-unit** guard radius;
+- preserves the original bidirectional parent relationship: Rotor link1 points to its parent and the parent link2 points back to its Rotor;
+- restores collision wake semantics: a valid player-shot hit on the Rotor wakes attack state, and a nonlethal Mother Base hit wakes its linked Rotor;
+- adds Rotor hostile fire using the recovered strict signed-Random window `10000 < Random() < 15000` and the shared **3 active hostile shots** cap;
+- fixes linked-child cleanup so destroying a Rotor clears the parent Rotor link without incorrectly decrementing the parent's launched-defender count;
+- adds deterministic regression coverage for constants, link/wake behavior, orbit → attack → return transitions, fire eligibility, and cleanup.
+
+The original shared 80-object allocator, exact Classic Mac `Random()` sequence, and remaining Bee/Seeker/collision edge states are still intentionally separate parity work. Milestone 1.0 does not replace unknown rules with remaster guesses.
+
+Detailed notes: [`Docs/MILESTONE-1.0.md`](Docs/MILESTONE-1.0.md).
 
 ## Milestone 0.9 — Mother Base Motion & Headquarters Fire
 
@@ -164,7 +183,7 @@ The source art remains untouched; generated icon PNGs are derived assets.
 
 ## Accuracy status
 
-Milestone 0.9 is the current recovered-gameplay build. It is not yet a claim of 100% behavior parity. Exact sprite collision, object/save layouts, damage tables, fixed wave presets, several AI routines and core motion semantics have been recovered. Remaining AI/collision/wave/projectile/equipment state machines are being lifted into `ZoneCore/Recovered` and will replace temporary milestone logic subsystem-by-subsystem.
+Milestone 1.0 is the current recovered-gameplay build. It is not yet a claim of 100% behavior parity. Exact sprite collision, object/save layouts, damage tables, fixed wave presets, several AI routines and core motion semantics have been recovered. Remaining AI/collision/wave/projectile/equipment state machines are being lifted into `ZoneCore/Recovered` and will replace temporary milestone logic subsystem-by-subsystem.
 
 ## Asset completeness
 

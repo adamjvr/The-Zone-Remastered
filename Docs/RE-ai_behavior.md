@@ -20,10 +20,10 @@ Facing is computed with the game's angle helper and a 24-frame orientation:
 
 ### Shooting gates
 
-The `bloo`, `raid`, `bee!`, and `seek` random-fire paths additionally require
-`object+72 < 3`. The shared shot-spawn tail increments `object+72`, creates a
-`fire` object, links it back to the shooter through object link1, and plays the
-appropriate SFX.
+The `bloo`, `raid`, `bee!`, `seek`, and `roto` random-fire paths additionally
+require `object+72 < 3`. The shared shot-spawn tail increments `object+72`,
+creates a `fire` object, links it back to the shooter through object link1, and
+plays the appropriate SFX.
 
 Strict signed-Random windows observed:
 
@@ -31,6 +31,7 @@ Strict signed-Random windows observed:
 - `bee!`: `(10000, 15000)`
 - `raid`: `(10000, 20000)`
 - `seek`: `(10000, 11000)`
+- `roto`: `(10000, 15000)`
 
 Because Classic Mac `Random()` is treated as signed 16-bit here, these are
 literal comparison windows, not percentages reconstructed from observation.
@@ -70,3 +71,35 @@ fields +40/+42.
 
 A hit/stun state at object+66 uses object+92 as a tick timestamp and suppresses
 normal retargeting for 60 ticks.
+
+## Rotor (`roto`) — `0x15BC8..0x16124`
+
+The Rotor is a linked guard object. Its link1 at object `+142` points to a
+Mother Base or Headquarters; fixed-wave construction stores the reciprocal
+Rotor pointer in the parent's link2 (`+146`). The handler validates that parent
+on every update.
+
+Rotor byte `+131` is the live state selector:
+
+- **0 — orbit:** heading `+54` advances by 4 degrees and wraps at 360. The
+  visible 24-frame orientation is tangent to the orbit: `(heading + 90) / 15`.
+  The target point is a **40-unit** circle around the parent.
+- **1 — attack:** aim at the player and pursue at recovered speed **10**. If
+  parent distance reaches the **160-unit** leash in the 640-unit Classic zone,
+  switch to state 2.
+- **2 — return:** aim at the parent and return at recovered speed **20**. Once
+  parent distance is at or below **40 units**, switch back to state 0.
+
+Before state dispatch, an orbiting Rotor switches immediately to attack when
+player distance squared is at or below `10000.0` — exactly **100 units**.
+
+The collision dispatcher supplies two additional wake paths: a valid player
+shot on a Rotor writes `+131 = 1` before the lethal-threshold check, and a
+nonlethal hit on a Mother Base wakes its linked Rotor through parent link2.
+
+Rotor firing reaches the shared hostile-fire tail with the strict signed-Random
+window `10000 < Random() < 15000` and the same `object+72 < 3` active-shot cap
+as the other firing enemies.
+
+If link1 is missing or no longer points to `moth`/`base`, the native handler
+falls through to a direct pursuit path instead of continuing the orbit state.

@@ -113,6 +113,14 @@ int16_t tz_mother_motion_state_from_random_word(uint16_t random_word);
 float tz_mother_direct_speed(float distance_squared, float maximum_speed);
 int16_t tz_hq_fire_interval(void);
 
+/* Rotor guard state machine, PPC 0x15BC8..0x16124. */
+float tz_rotor_orbit_radius(void);
+float tz_rotor_attack_radius_squared(void);
+float tz_rotor_leash_radius(float zone_extent);
+float tz_rotor_attack_speed(void);
+float tz_rotor_return_speed(void);
+int16_t tz_rotor_orbit_heading_step(void);
+
 /* Recovered collision semantics. */
 void tz_swap_fixed_velocity(TzZoneObjectPPC32 *a, TzZoneObjectPPC32 *b);
 void tz_swap_float_velocity(TzZoneObjectPPC32 *a, TzZoneObjectPPC32 *b);

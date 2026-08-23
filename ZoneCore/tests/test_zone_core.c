@@ -592,6 +592,97 @@ static void test_hq_15_tick_fire_cadence(void) {
     zone_game_destroy(g);
 }
 
+
+static void test_recovered_rotor_constants(void) {
+    assert(nearly(tz_rotor_orbit_radius(), 40.0f));
+    assert(nearly(tz_rotor_attack_radius_squared(), 10000.0f));
+    assert(nearly(tz_rotor_leash_radius(640.0f), 160.0f));
+    assert(nearly(tz_rotor_attack_speed(), 10.0f));
+    assert(nearly(tz_rotor_return_speed(), 20.0f));
+    assert(tz_rotor_orbit_heading_step() == 4);
+
+    assert(!tz_enemy_should_fire(TZ_TYPE_ROTO, 10000));
+    assert(tz_enemy_should_fire(TZ_TYPE_ROTO, 10001));
+    assert(tz_enemy_should_fire(TZ_TYPE_ROTO, 14999));
+    assert(!tz_enemy_should_fire(TZ_TYPE_ROTO, 15000));
+    assert(tz_enemy_fire_active_cap(TZ_TYPE_ROTO) == 3);
+}
+
+static void test_rotor_link_wake_and_cleanup(void) {
+    ZoneGame *g = zone_game_create(0x15BC8u);
+    assert(g);
+    zone_game_debug_load_fixed_wave(g, 5); /* Professional: 2 moth, 1 linked Rotor. */
+
+    const int32_t moth = zone_game_debug_find_nth_type(g, TZ_TYPE_MOTH, 0);
+    const int32_t rotor = zone_game_debug_find_nth_type(g, TZ_TYPE_ROTO, 0);
+    assert(moth >= 0 && rotor >= 0);
+    assert(zone_game_debug_world_parent(g, rotor) == moth);
+    assert(zone_game_debug_world_rotor_child(g, moth) == rotor);
+    assert(zone_game_debug_rotor_state(g, rotor) == 0);
+
+    /* A nonlethal Mother hit wakes link2 at PPC 0x19CB8..0x19CE8. */
+    assert(zone_game_debug_apply_player_shot(g, moth) == 0);
+    assert(zone_game_debug_rotor_state(g, rotor) == 1);
+
+    /* A valid Rotor hit also forces +131 = 1 before its lethal check. */
+    zone_game_debug_set_rotor_state(g, rotor, 0, 0);
+    assert(zone_game_debug_apply_player_shot(g, rotor) == 0);
+    assert(zone_game_debug_rotor_state(g, rotor) == 1);
+
+    /* Rotor is the parent's link2 guard, not a launched-defender +72 count. */
+    const int defenders = zone_game_debug_world_defender_count(g, moth);
+    zone_game_debug_destroy_world(g, rotor);
+    assert(zone_game_debug_world_defender_count(g, moth) == defenders);
+    assert(zone_game_debug_world_rotor_child(g, moth) == -1);
+    zone_game_destroy(g);
+}
+
+static void test_rotor_orbit_attack_return_live(void) {
+    ZoneGame *g = zone_game_create(0x16078u);
+    assert(g);
+    zone_game_debug_load_fixed_wave(g, 5);
+    const int32_t moth = zone_game_debug_find_nth_type(g, TZ_TYPE_MOTH, 0);
+    const int32_t rotor = zone_game_debug_find_nth_type(g, TZ_TYPE_ROTO, 0);
+    assert(moth >= 0 && rotor >= 0);
+
+    zone_game_debug_set_world_state(g, moth, 300.0f, 240.0f, 0.0f, 0.0f, 0);
+    zone_game_debug_set_world_state(g, rotor, 340.0f, 240.0f, 0.0f, 0.0f, 6);
+    zone_game_debug_set_rotor_state(g, rotor, 0, 0);
+    zone_game_debug_set_player_state(g, 500.0f, 240.0f, 0.0f, 0.0f);
+
+    zone_game_step(g, (ZoneInput){0});
+    ZoneDebugBodyState rs = zone_game_debug_world_state(g, rotor);
+    assert(zone_game_debug_rotor_state(g, rotor) == 0);
+    assert(rs.frame == 6); /* (4 + 90) / 15 */
+    assert(hypotf(rs.x - 300.0f, rs.y - 240.0f) > 39.0f);
+    assert(hypotf(rs.x - 300.0f, rs.y - 240.0f) < 41.0f);
+
+    /* Inside 100 units: state 0 wakes and executes attack in the same tick. */
+    zone_game_debug_set_player_state(g, rs.x + 50.0f, rs.y, 0.0f, 0.0f);
+    zone_game_step(g, (ZoneInput){0});
+    rs = zone_game_debug_world_state(g, rotor);
+    assert(zone_game_debug_rotor_state(g, rotor) == 1);
+    assert(nearly(hypotf(rs.vx, rs.vy), tz_rotor_attack_speed()));
+
+    /* Beyond the 160-unit leash, state 1 becomes return state 2. */
+    zone_game_debug_set_world_state(g, rotor, 500.0f, 240.0f, rs.vx, rs.vy, rs.frame);
+    zone_game_debug_set_player_state(g, 510.0f, 240.0f, 0.0f, 0.0f);
+    zone_game_debug_set_rotor_state(g, rotor, 1, 0);
+    zone_game_step(g, (ZoneInput){0});
+    assert(zone_game_debug_rotor_state(g, rotor) == 2);
+
+    zone_game_step(g, (ZoneInput){0});
+    rs = zone_game_debug_world_state(g, rotor);
+    assert(nearly(hypotf(rs.vx, rs.vy), tz_rotor_return_speed()));
+
+    /* Re-entering the 40-unit guard orbit resets return -> orbit. */
+    zone_game_debug_set_world_state(g, rotor, 339.0f, 240.0f, rs.vx, rs.vy, rs.frame);
+    zone_game_debug_set_rotor_state(g, rotor, 2, 0);
+    zone_game_step(g, (ZoneInput){0});
+    assert(zone_game_debug_rotor_state(g, rotor) == 0);
+    zone_game_destroy(g);
+}
+
 static void test_muzzle_table(void) {
     const TzMuzzleOffset f0 = tz_ship_muzzle_offset_frame48(0);
     const TzMuzzleOffset f12 = tz_ship_muzzle_offset_frame48(12);
@@ -704,6 +795,9 @@ int main(void) {
     test_mobile_mother_quota_and_kill_activation();
     test_mother_motion_states_live();
     test_hq_15_tick_fire_cadence();
+    test_recovered_rotor_constants();
+    test_rotor_link_wake_and_cleanup();
+    test_rotor_orbit_attack_return_live();
     test_recovered_hostile_fire_constants();
     test_hostile_projectile_cap_and_player_hit();
     test_seeker_near_far_speed_switch();
@@ -778,6 +872,7 @@ int main(void) {
     puts("Two-base Bee donor/requester linkage + counter repair: PASS");
     puts("Linked Empire Fighter spawn/count cleanup: PASS");
     puts("Live Empire Fighter chase cadence/cap/facing: PASS");
+    puts("Recovered Rotor orbit/attack/return + wake/link/fire semantics: PASS");
     puts("Recovered hostile-fire gates/cap/speed: PASS");
     puts("Hostile projectile player-hit/source cleanup: PASS");
     puts("Seeker 200-unit near/far speed switch: PASS");

@@ -118,6 +118,10 @@ int32_t zone_game_debug_world_state84(const ZoneGame *game, int32_t index);
 int32_t zone_game_debug_mother_motion_state(const ZoneGame *game, int32_t index);
 void zone_game_debug_set_mother_state(ZoneGame *game, int32_t index,
                                       int32_t state84, int32_t motion_state);
+int32_t zone_game_debug_rotor_state(const ZoneGame *game, int32_t index);
+int32_t zone_game_debug_world_rotor_child(const ZoneGame *game, int32_t index);
+void zone_game_debug_set_rotor_state(ZoneGame *game, int32_t index,
+                                     int32_t rotor_state, int32_t heading_degrees);
 void zone_game_debug_load_fixed_wave(ZoneGame *game, int32_t wave);
 uint32_t zone_game_debug_behavior_tick(const ZoneGame *game);
 

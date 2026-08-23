@@ -26,7 +26,7 @@ Completed:
 
 Remaining forensic work is mostly in service of behavioral parity: historical version binary diffs, exact classic RNG, and unresolved state-machine constants.
 
-## Phase 1 — Gameplay decompilation — ~85%
+## Phase 1 — Gameplay decompilation — ~90%
 
 **Status: active.**
 
@@ -52,7 +52,6 @@ Major remaining lifts:
 - remaining Mother Base/HQ collision/state edge semantics and original shared-object-pool behavior;
 - Bee stun/return edge states around the now-live continuous-vector chase;
 - remaining Seeker edge states around the now-live 200-unit speed switch;
-- Rotor parent/orbit/attack/return state machine;
 - complete hostile projectile lifetime/collision special cases beyond the recovered base damage path;
 - full special-case collision matrix;
 - exact Big Rock child geometry;
@@ -83,9 +82,9 @@ Completed:
 
 Remaining platform work is primarily product/UI polish and iPad device validation, not architectural restructuring.
 
-## Phase 3 — Live Classic gameplay reconstruction — ~60%
+## Phase 3 — Live Classic gameplay reconstruction — ~68%
 
-**Current phase: Milestone 0.9.**
+**Current phase: Milestone 1.0.**
 
 Delivered through 0.5:
 
@@ -133,10 +132,19 @@ Milestone 0.9 promotes the next recovered base-state behavior without inventing 
 - Headquarters use their independent `0x14B18` base handler and fire an aimed `fire` projectile every **15 behavior ticks**;
 - all 0.8 damage feedback, defender caps, Bee separation, and fixed base-frame behavior remain regression-covered.
 
+Milestone 1.0 promotes the linked Rotor guard state machine:
+
+- PPC `0x15BC8..0x16124` Rotor states **0/1/2** are live as orbit, attack and return;
+- linked Rotors hold the recovered **40-unit** orbit and wake at **100 units** from the player;
+- attack uses recovered speed **10**, transitions to return at the **160-unit** parent leash, and return uses recovered speed **20** until the Rotor re-enters the 40-unit guard radius;
+- Mother Base nonlethal hits and Rotor hits wake the linked Rotor exactly through the recovered `+131 = 1` semantics;
+- Rotor hostile fire uses the strict `(10000,15000)` signed-Random window and shared 3-shot cap;
+- Rotor destruction clears the parent link2 without corrupting the launched-defender counter.
+
 Next priorities:
 
-1. finish remaining Mother/HQ collision-state and original object-list/shared-capacity parity details;
-2. complete Bee/Seeker edge states and Rotor orbit/attack/return AI;
+1. complete Bee stun/return and remaining Seeker edge states around the now-live pursuit cores;
+2. finish remaining Mother/HQ collision-state and original object-list/shared-capacity parity details;
 3. finish hostile-projectile lifetime and special collision consequences;
 4. complete wave-transition presentation and procedural waves 19+;
 5. remaining collision/destruction/equipment special cases.

@@ -56,12 +56,15 @@ struct WorldObject {
     int tick;
     int state_84;            /* PPC +84: fixed-wave mobile-Mother eligibility flag */
     int mother_motion_state; /* PPC +86: Mother Base movement selector (0,1,2) */
+    int rotor_state;         /* PPC +131: Rotor 0 orbit, 1 attack, 2 return */
+    int rotor_heading;       /* PPC +54: Rotor orbit/aim heading in degrees */
 
     /* Portable equivalents of the recovered object-link/counter state.
        The shipping PPC object stores object links as pointers; ZoneCore uses
        stable world-slot indices so save/host pointer width never leaks in. */
     int parent_slot;
     int requester_slot;
+    int rotor_slot;          /* PPC parent +146 / Rotor child link2 */
     int defender_count;
     int bee_out_count;
     int bee_request_count;
@@ -298,6 +301,7 @@ static struct WorldObject *spawn_world_object(ZoneGame *g, uint32_t type) {
     o->type = type;
     o->parent_slot = -1;
     o->requester_slot = -1;
+    o->rotor_slot = -1;
     o->sprite_base = base;
     o->frame_count = frames;
     o->side = side;
@@ -397,9 +401,9 @@ static void populate_fixed_wave(ZoneGame *g, unsigned wave) {
         if (spawn_world_object(g, TZ_TYPE_SEEK)) ++g->enemies_remaining;
     }
 
-    /* The fixed wave table explicitly links the first N Rotors to Mother
-       Bases.  Their full orbit/attack/return state machine remains a later
-       lift, but the recovered population and parent relationship are live. */
+    /* PPC 0x13A58..0x13B5C creates the first N linked Rotors and stores both
+       directions of the relationship: Rotor +142 -> Mother, Mother +146 -> Rotor.
+       Rotor state +131 starts at zero (orbit). */
     const int rotor_count =
         preset->rotor_link_count < mother_count ? preset->rotor_link_count : mother_count;
     for (int i = 0; i < rotor_count; ++i) {
@@ -408,7 +412,12 @@ static void populate_fixed_wave(ZoneGame *g, unsigned wave) {
         struct WorldObject *rotor = spawn_world_object_at(
             g, TZ_TYPE_ROTO, parent->x + 40.0f, parent->y, 0.0f, 0.0f);
         if (rotor) {
+            const int rotor_slot = (int)(rotor - g->world);
             rotor->parent_slot = parent_slot;
+            rotor->rotor_state = 0;
+            rotor->rotor_heading = 0;
+            rotor->frame = 6; /* (0 + 90) / 15 at PPC 0x15DA8..0x15DCC */
+            parent->rotor_slot = rotor_slot;
             ++g->enemies_remaining;
         }
     }
@@ -561,6 +570,16 @@ static void world_object_survived_player_shot(ZoneGame *g, int slot) {
            0x161D0 launch linked defenders, then 0x16504 request a Bee. */
         (void)launch_mother_defenders(g, slot);
         (void)request_bee(g, slot);
+
+        /* PPC 0x19CB8..0x19CE8 wakes the linked Rotor after a valid
+           nonlethal Mother hit by writing Rotor byte +131 = 1. */
+        if (o->rotor_slot >= 0 && o->rotor_slot < ZONE_WORLD_CAP) {
+            struct WorldObject *rotor = &g->world[o->rotor_slot];
+            if (rotor->active && rotor->type == TZ_TYPE_ROTO &&
+                rotor->parent_slot == slot && rotor->rotor_state != 1) {
+                rotor->rotor_state = 1;
+            }
+        }
     } else if (o->type == TZ_TYPE_BASE) {
         /* Headquarters uses its separate non-random defender reaction
            routine at PPC 0x16390. */
@@ -654,10 +673,111 @@ static void update_seeker_ai(ZoneGame *g, struct WorldObject *o) {
     o->frame = frame24_toward(o->x, o->y, g->player_x, g->player_y);
 }
 
+static void update_rotor_ai(ZoneGame *g, struct WorldObject *o) {
+    if (!g->player_alive || !o || !o->active || o->type != TZ_TYPE_ROTO) return;
+
+    struct WorldObject *parent = NULL;
+    if (o->parent_slot >= 0 && o->parent_slot < ZONE_WORLD_CAP) {
+        struct WorldObject *candidate = &g->world[o->parent_slot];
+        if (candidate->active &&
+            (candidate->type == TZ_TYPE_MOTH || candidate->type == TZ_TYPE_BASE)) {
+            parent = candidate;
+        }
+    }
+
+    /* PPC 0x15BC8 verifies link1 every update. If the parent is gone or no
+       longer a Mother/HQ, execution falls into the Seeker-style direct chase
+       path with the recovered 200-unit speed switch. */
+    if (!parent) {
+        const float dx = shortest_wrapped_delta(o->x, g->player_x, ZONE_LOGICAL_WIDTH);
+        const float dy = shortest_wrapped_delta(o->y, g->player_y, ZONE_LOGICAL_HEIGHT);
+        const float dist_sq = dx * dx + dy * dy;
+        const float mag = sqrtf(dist_sq);
+        if (mag > 0.0001f) {
+            const float speed = dist_sq <= 40000.0f ? g->player_max_speed : 10.0f;
+            o->vx = (dx / mag) * speed;
+            o->vy = (dy / mag) * speed;
+            o->rotor_heading = (frame24_toward(o->x, o->y, g->player_x, g->player_y) * 15) % 360;
+            o->frame = o->rotor_heading / 15;
+        }
+        return;
+    }
+
+    const float player_dx = shortest_wrapped_delta(o->x, g->player_x, ZONE_LOGICAL_WIDTH);
+    const float player_dy = shortest_wrapped_delta(o->y, g->player_y, ZONE_LOGICAL_HEIGHT);
+    const float player_dist_sq = player_dx * player_dx + player_dy * player_dy;
+
+    /* State 0 immediately wakes into state 1 when the player enters the
+       recovered 100-unit radius, then runs the attack state in the same tick. */
+    if (o->rotor_state == 0 && player_dist_sq <= tz_rotor_attack_radius_squared()) {
+        o->rotor_state = 1;
+    }
+
+    if (o->rotor_state == 0) {
+        ensure_trig_tables();
+        o->rotor_heading = (o->rotor_heading + tz_rotor_orbit_heading_step()) % 360;
+        const int tangent = (o->rotor_heading + 90) % 360;
+        o->frame = tangent / 15;
+
+        const float radius = tz_rotor_orbit_radius();
+        const int a = o->rotor_heading;
+        const float desired_x = wrapf(parent->x + radius * g_cos_360[a], ZONE_LOGICAL_WIDTH);
+        const float desired_y = wrapf(parent->y + radius * g_neg_sin_360[a], ZONE_LOGICAL_HEIGHT);
+        const float dx = shortest_wrapped_delta(o->x, desired_x, ZONE_LOGICAL_WIDTH);
+        const float dy = shortest_wrapped_delta(o->y, desired_y, ZONE_LOGICAL_HEIGHT);
+
+        /* Unlike the vector-speed states, PPC state 0 writes the full orbit
+           correction directly to +40/+42 before common integration. Compensate
+           for ZoneCore's screen-motion scale so the visible displacement is the
+           recovered correction rather than a second scaling of it. */
+        o->vx = dx / ZONE_MOTION_X_SCALE;
+        o->vy = dy / ZONE_MOTION_Y_SCALE;
+        return;
+    }
+
+    const float parent_dx = shortest_wrapped_delta(o->x, parent->x, ZONE_LOGICAL_WIDTH);
+    const float parent_dy = shortest_wrapped_delta(o->y, parent->y, ZONE_LOGICAL_HEIGHT);
+    const float parent_dist_sq = parent_dx * parent_dx + parent_dy * parent_dy;
+
+    if (o->rotor_state == 1) {
+        const float leash = tz_rotor_leash_radius((float)ZONE_LOGICAL_WIDTH);
+        if (parent_dist_sq >= leash * leash) {
+            o->rotor_state = 2;
+            return; /* PPC changes state and reaches the common tail this tick. */
+        }
+        const float mag = sqrtf(player_dist_sq);
+        if (mag > 0.0001f) {
+            const float speed = tz_rotor_attack_speed();
+            o->vx = (player_dx / mag) * speed;
+            o->vy = (player_dy / mag) * speed;
+            o->frame = frame24_toward(o->x, o->y, g->player_x, g->player_y);
+            o->rotor_heading = o->frame * 15;
+        }
+        return;
+    }
+
+    if (o->rotor_state == 2) {
+        const float radius = tz_rotor_orbit_radius();
+        if (parent_dist_sq <= radius * radius) {
+            o->rotor_state = 0;
+            return;
+        }
+        const float mag = sqrtf(parent_dist_sq);
+        if (mag > 0.0001f) {
+            const float speed = tz_rotor_return_speed();
+            o->vx = (parent_dx / mag) * speed;
+            o->vy = (parent_dy / mag) * speed;
+            o->frame = frame24_toward(o->x, o->y, parent->x, parent->y);
+            o->rotor_heading = o->frame * 15;
+        }
+    }
+}
+
 static void update_complex_enemy_ai(ZoneGame *g, struct WorldObject *o) {
     if (!o || !o->active) return;
     if (o->type == TZ_TYPE_BEE) update_bee_ai(g, o);
     else if (o->type == TZ_TYPE_SEEK) update_seeker_ai(g, o);
+    else if (o->type == TZ_TYPE_ROTO) update_rotor_ai(g, o);
     else if (o->type == TZ_TYPE_MOTH) update_mother_ai(g, o);
 }
 
@@ -858,6 +978,9 @@ static void destroy_world_object(ZoneGame *g, struct WorldObject *o) {
             if (parent->active) {
                 if (destroyed_type == TZ_TYPE_BEE) {
                     if (parent->bee_out_count > 0) --parent->bee_out_count;
+                } else if (destroyed_type == TZ_TYPE_ROTO) {
+                    /* Rotor is link2, not one of the +72 launched defenders. */
+                    if (parent->rotor_slot == slot) parent->rotor_slot = -1;
                 } else {
                     if (parent->defender_count > 0) --parent->defender_count;
                 }
@@ -901,6 +1024,10 @@ static int apply_player_shot_to_world(ZoneGame *g, int slot, int damage) {
 
     const int threshold = destruction_threshold(g, o->type);
     if (threshold <= 0) return 0;
+
+    /* PPC 0x19AD4 writes Rotor +131 = 1 on every valid player-shot hit,
+       before deciding whether that hit is lethal. */
+    if (o->type == TZ_TYPE_ROTO) o->rotor_state = 1;
     o->damage += damage;
 
     if (o->damage >= threshold) {
@@ -1085,8 +1212,8 @@ void zone_game_step(ZoneGame *g, ZoneInput in) {
 
         /* Collision-transferred motion plus live enemy motion. The simple
            swar/bloo/moto/raid families use recovered integer per-axis velocity
-           caps; more complex Bee/Seeker/Rotor vector state arrives in later
-           lifts without changing the world-object interface. */
+           caps; Bee/Seeker/Mother/Rotor use their recovered higher-level
+           vector/state handlers without changing the world-object interface. */
         if (o->type == TZ_TYPE_ASTE || o->type == TZ_TYPE_ROCK ||
             o->type == TZ_TYPE_STON || o->type == TZ_TYPE_MOTH ||
             o->type == TZ_TYPE_BASE || is_enemy_type(o->type)) {
@@ -1483,6 +1610,28 @@ void zone_game_debug_set_mother_state(ZoneGame *g, int32_t index,
     o->state_84 = state84 ? 1 : 0;
     o->mother_motion_state =
         motion_state < 0 ? 0 : (motion_state > 2 ? 2 : motion_state);
+}
+
+int32_t zone_game_debug_rotor_state(const ZoneGame *g, int32_t index) {
+    if (!g || index < 0 || index >= ZONE_WORLD_CAP || !g->world[index].active ||
+        g->world[index].type != TZ_TYPE_ROTO) return -1;
+    return g->world[index].rotor_state;
+}
+
+int32_t zone_game_debug_world_rotor_child(const ZoneGame *g, int32_t index) {
+    if (!g || index < 0 || index >= ZONE_WORLD_CAP || !g->world[index].active) return -1;
+    return g->world[index].rotor_slot;
+}
+
+void zone_game_debug_set_rotor_state(ZoneGame *g, int32_t index,
+                                     int32_t rotor_state, int32_t heading_degrees) {
+    if (!g || index < 0 || index >= ZONE_WORLD_CAP) return;
+    struct WorldObject *o = &g->world[index];
+    if (!o->active || o->type != TZ_TYPE_ROTO) return;
+    o->rotor_state = rotor_state < 0 ? 0 : (rotor_state > 2 ? 2 : rotor_state);
+    heading_degrees %= 360;
+    if (heading_degrees < 0) heading_degrees += 360;
+    o->rotor_heading = heading_degrees;
 }
 
 void zone_game_debug_load_fixed_wave(ZoneGame *g, int32_t wave) {
