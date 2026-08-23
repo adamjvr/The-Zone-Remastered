@@ -2,7 +2,7 @@
   <img src="Docs/images/TheZoneRemastered-Ship.png" alt="The Zone Remastered ship" width="720">
 </p>
 
-# The Zone Remastered — Engineering Milestone 1.2
+# The Zone Remastered — Engineering Milestone 1.3
 
 Native Apple remaster built from the reverse-engineered *TheZone* 1.5.1 game logic and assets.
 
@@ -11,6 +11,14 @@ Native Apple remaster built from the reverse-engineered *TheZone* 1.5.1 game log
 - **The Zone macOS** — native macOS application, verified building and running on macOS 15 Sequoia. Keyboard is canonical; controllers exposed by Apple's `GameController.framework` are supported as an alternate input path.
 - **The Zone iPadOS** — separate native iPadOS application target. Apple-supported game controllers are first-class; touch controls remain available when no controller is connected.
 - **ZoneCore** — deterministic portable C engine library, with no AppKit/UIKit/Metal dependencies.
+
+## Milestone 1.3 — Bee & Seeker State Completion
+
+Milestone 1.3 returns to Classic gameplay reconstruction on the accepted 1.2 runtime. Bee PPC `0x154A8` and Seeker PPC `0x15944` now honor their recovered `+66/+92` timed hit-state gates: while elapsed Classic TickCount is below **60**, they retain existing motion and skip retarget/facing/fire; at elapsed 60 the state clears and normal behavior resumes. The Seeker player/body collision path at `0x1A0B4..0x1A0C8` backdates `+92` by **30**, leaving half of the full interval after contact.
+
+The earlier roadmap description of a Bee "return" state is corrected: the Bee handler does not read its donor link and contains no recovered return-to-parent navigation. Professional Wave 2 now supplies a real fixed-wave integration regression proving that a nonlethal hit on one Mother can request a Bee from the other Mother, while Wave 1 still correctly cannot self-donate.
+
+Detailed notes: [`Docs/MILESTONE-1.3.md`](Docs/MILESTONE-1.3.md) and [`Docs/RE-bee-seeker.md`](Docs/RE-bee-seeker.md).
 
 ## Milestone 1.2 — Host Stall Attribution
 

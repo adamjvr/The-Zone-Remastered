@@ -161,6 +161,13 @@ static void test_recovered_enemy_behavior_constants(void) {
     assert(tz_mother_defender_batch_count(false, 2) == 3);
     assert(tz_hq_defender_active_cap(true) == 4);
     assert(tz_hq_defender_active_cap(false) == 2);
+
+    assert(tz_enemy_hit_state_duration(TZ_TYPE_BEE) == 60);
+    assert(tz_enemy_hit_state_duration(TZ_TYPE_SEEK) == 60);
+    assert(tz_enemy_hit_state_duration(TZ_TYPE_RAID) == 0);
+    assert(tz_seeker_player_collision_hit_backdate() == 30);
+    assert(nearly(tz_seeker_direct_speed(40000.0f, 25.0f, 10.0f), 25.0f));
+    assert(nearly(tz_seeker_direct_speed(40001.0f, 25.0f, 10.0f), 10.0f));
 }
 
 static void test_wave1_mother_defense_and_bee_semantics(void) {
@@ -233,6 +240,88 @@ static void test_two_base_bee_request_linkage(void) {
 
     /* Destroying the linked Bee repairs both recovered counters. */
     assert(zone_game_debug_request_bee(g, requester) >= 0);
+    zone_game_destroy(g);
+}
+
+static void test_wave2_mother_hit_spawns_bee_from_other_mother(void) {
+    ZoneGame *g = zone_game_create(0xBEE20002u);
+    assert(g);
+    zone_game_debug_load_fixed_wave(g, 2);
+
+    const int32_t requester = zone_game_debug_find_nth_type(g, TZ_TYPE_MOTH, 0);
+    const int32_t donor = zone_game_debug_find_nth_type(g, TZ_TYPE_MOTH, 1);
+    assert(requester >= 0 && donor >= 0 && requester != donor);
+    assert(zone_game_count_type(g, TZ_TYPE_BEE) == 0);
+
+    /* Professional Wave 2 has two Mothers and bee_limit=1.  The recovered
+       nonlethal Mother-hit path requests a Bee from ANOTHER base, so this is
+       the first fixed wave where the request can succeed without a synthetic
+       donor. Defender launch may also occur; it does not change Bee linkage. */
+    assert(zone_game_debug_apply_player_shot(g, requester) == 0);
+    assert(zone_game_count_type(g, TZ_TYPE_BEE) == 1);
+    const int32_t bee = zone_game_debug_find_nth_type(g, TZ_TYPE_BEE, 0);
+    assert(bee >= 0);
+    assert(zone_game_debug_world_parent(g, bee) == donor);
+    zone_game_destroy(g);
+}
+
+static void test_bee_timed_hit_state_coasts_then_retargets(void) {
+    ZoneGame *g = zone_game_create(0xBEE154A8u);
+    assert(g);
+    park_wave1_except(g, -1, -1);
+    zone_game_debug_set_player_state(g, 300.0f, 240.0f, 0.0f, 0.0f);
+    const int32_t bee = zone_game_debug_spawn_world(
+        g, TZ_TYPE_BEE, 100.0f, 240.0f, 0.0f, 4.0f);
+    assert(bee >= 0);
+
+    ZoneDebugBodyState before = zone_game_debug_world_state(g, bee);
+    zone_game_debug_set_world_hit_state(g, bee, 1, 0);
+    assert(zone_game_debug_world_hit_state(g, bee) == 1);
+
+    advance_ticks(g, 59);
+    ZoneDebugBodyState gated = zone_game_debug_world_state(g, bee);
+    assert(zone_game_debug_world_hit_state(g, bee) == 1);
+    assert(nearly(gated.vx, before.vx));
+    assert(nearly(gated.vy, before.vy));
+    assert(gated.frame == before.frame);
+
+    /* At elapsed == 60 the original gate clears and normal chase resumes. */
+    advance_ticks(g, 1);
+    ZoneDebugBodyState resumed = zone_game_debug_world_state(g, bee);
+    assert(zone_game_debug_world_hit_state(g, bee) == 0);
+    assert(!nearly(resumed.vx, before.vx) || !nearly(resumed.vy, before.vy));
+    zone_game_destroy(g);
+}
+
+static void test_seeker_player_collision_half_hit_state(void) {
+    ZoneGame *g = zone_game_create(0x5EE15944u);
+    assert(g);
+    park_wave1_except(g, -1, -1);
+    zone_game_debug_set_player_state(g, 300.0f, 240.0f, 0.0f, 0.0f);
+    const int32_t seek = zone_game_debug_spawn_world(
+        g, TZ_TYPE_SEEK, 300.0f, 240.0f, 0.0f, 0.0f);
+    assert(seek >= 0);
+
+    /* First tick reaches the recovered player/body collision branch.  It sets
+       +66=1 and backdates +92 by 30 TickCount units. */
+    zone_game_step(g, (ZoneInput){0});
+    assert(zone_game_debug_world_hit_state(g, seek) == 1);
+
+    /* Move the player away so a retarget is obvious once the remaining
+       30-tick interval expires. */
+    zone_game_debug_set_player_state(g, 500.0f, 240.0f, 0.0f, 0.0f);
+    ZoneDebugBodyState coast0 = zone_game_debug_world_state(g, seek);
+    advance_ticks(g, 29);
+    ZoneDebugBodyState coast29 = zone_game_debug_world_state(g, seek);
+    assert(zone_game_debug_world_hit_state(g, seek) == 1);
+    assert(nearly(coast29.vx, coast0.vx));
+    assert(nearly(coast29.vy, coast0.vy));
+    assert(coast29.frame == coast0.frame);
+
+    advance_ticks(g, 1);
+    ZoneDebugBodyState resumed = zone_game_debug_world_state(g, seek);
+    assert(zone_game_debug_world_hit_state(g, seek) == 0);
+    assert(!nearly(resumed.vx, coast0.vx) || !nearly(resumed.vy, coast0.vy));
     zone_game_destroy(g);
 }
 
@@ -801,11 +890,14 @@ int main(void) {
     test_recovered_hostile_fire_constants();
     test_hostile_projectile_cap_and_player_hit();
     test_seeker_near_far_speed_switch();
+    test_bee_timed_hit_state_coasts_then_retargets();
+    test_seeker_player_collision_half_hit_state();
     test_fixed_wave_lifecycle_1_to_2();
     test_mother_base_frame_is_stable();
     test_recovered_enemy_behavior_constants();
     test_wave1_mother_defense_and_bee_semantics();
     test_two_base_bee_request_linkage();
+    test_wave2_mother_hit_spawns_bee_from_other_mother();
     test_empire_fighter_live_chase();
     test_mother_base_long_damage_chain_and_feedback();
     test_hq_nonlethal_defender_reaction();
@@ -870,12 +962,15 @@ int main(void) {
     puts("Recovered Mother Base defender gate/cap/batch: PASS");
     puts("Professional Wave-1 Mother subtype / no-self-Bee request: PASS");
     puts("Two-base Bee donor/requester linkage + counter repair: PASS");
+    puts("Wave-2 nonlethal Mother hit -> other-base Bee request: PASS");
+    puts("Bee recovered 60-tick hit-state coast/resume: PASS");
     puts("Linked Empire Fighter spawn/count cleanup: PASS");
     puts("Live Empire Fighter chase cadence/cap/facing: PASS");
     puts("Recovered Rotor orbit/attack/return + wake/link/fire semantics: PASS");
     puts("Recovered hostile-fire gates/cap/speed: PASS");
     puts("Hostile projectile player-hit/source cleanup: PASS");
     puts("Seeker 200-unit near/far speed switch: PASS");
+    puts("Seeker collision 30-of-60 tick hit-state gate: PASS");
     puts("Fixed Wave 1 -> Wave 2 lifecycle: PASS");
     puts("Mother Base/HQ sprite-frame stability regression: PASS");
     puts("Mother Base 40-hit damage continuity + hit feedback: PASS");

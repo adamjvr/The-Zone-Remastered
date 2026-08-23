@@ -1,0 +1,32 @@
+The Zone Remastered — Milestone 1.3 candidate
+Bee & Seeker State Completion
+Base commit: f7894f0b8a28a2016fe6f593585fd4ecd335ad42
+
+Payload:
+  APPLY-MILESTONE-1.3.command
+  Docs/MILESTONE-1.3.md
+  Docs/RE-bee-seeker.md
+  Tools/verify-milestone-1.3.command
+  ZoneCore/Recovered/include/thezone_decomp.h
+  ZoneCore/Recovered/src/ai.c
+  ZoneCore/include/zone_core.h
+  ZoneCore/src/zone_core.c
+  ZoneCore/tests/test_zone_core.c
+
+Apply-time documentation updates:
+  README.md
+  Docs/ROADMAP.md
+
+Scope:
+  - promote Bee PPC 0x154A8 60-TickCount +66/+92 coast gate;
+  - promote Seeker PPC 0x15944 equivalent gate;
+  - promote Seeker player/body collision TickCount-30 backdate at 0x1A0B4..0x1A0C8;
+  - regression-test real Wave-2 other-Mother Bee request;
+  - correct prior unsupported Bee return-to-parent roadmap wording;
+  - document Milestone 1.4 display-independent high-refresh architecture.
+
+Non-scope:
+  - no renderer/audio/host changes;
+  - no high-refresh implementation yet;
+  - no Raider partial hit-state promotion;
+  - no guessed +128 spatial-mode behavior.

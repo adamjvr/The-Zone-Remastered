@@ -109,7 +109,6 @@ int16_t tz_enemy_fire_active_cap(uint32_t type) {
     switch (type) {
         case TZ_TYPE_BLOO:
         case TZ_TYPE_BEE:
-        case TZ_TYPE_RAID:
         case TZ_TYPE_SEEK:
         case TZ_TYPE_ROTO:
             return 3;
@@ -120,6 +119,33 @@ int16_t tz_enemy_fire_active_cap(uint32_t type) {
 
 float tz_enemy_projectile_speed(void) {
     return 11.25f;
+}
+
+/* PPC Bee 0x154A8 and Seeker 0x15944 both test object hit_state (+66)
+ * against 1 and compare current TickCount to tick_92 (+92) against 60.
+ * Milestone 1.3 promotes those two handlers only; Raider has a related gate
+ * but stays outside this milestone so its chase/fire semantics are not only
+ * partially promoted. */
+int16_t tz_enemy_hit_state_duration(uint32_t type) {
+    switch (type) {
+        case TZ_TYPE_BEE:
+        case TZ_TYPE_SEEK:
+            return 60;
+        default:
+            return 0;
+    }
+}
+
+/* Player-body collision path PPC 0x1A0B4..0x1A0C8 recognizes `seek`,
+ * writes current TickCount - 30 to +92 and sets +66 = 1. */
+int16_t tz_seeker_player_collision_hit_backdate(void) {
+    return 30;
+}
+
+/* Seeker 0x15AB0 uses <= 40000 (radius 200) for maximum speed and the
+ * recovered cruise-speed global outside that radius. */
+float tz_seeker_direct_speed(float distance_squared, float maximum_speed, float cruise_speed) {
+    return distance_squared <= 40000.0f ? maximum_speed : cruise_speed;
 }
 
 /* Mother Base hit-reaction routine at PPC 0x161D0. The cached signed Random

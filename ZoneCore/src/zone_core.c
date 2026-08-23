@@ -54,6 +54,8 @@ struct WorldObject {
     int side;
     int damage;
     int tick;
+    int hit_state;           /* PPC +66 timed enemy hit/stun state */
+    uint32_t hit_tick;       /* PPC +92 TickCount timestamp for +66 */
     int state_84;            /* PPC +84: fixed-wave mobile-Mother eligibility flag */
     int mother_motion_state; /* PPC +86: Mother Base movement selector (0,1,2) */
     int rotor_state;         /* PPC +131: Rotor 0 orbit, 1 attack, 2 return */
@@ -627,8 +629,35 @@ static void update_accelerative_chase_velocity(ZoneGame *g, struct WorldObject *
     }
 }
 
+static int enemy_hit_state_active(ZoneGame *g, struct WorldObject *o) {
+    if (!g || !o || o->hit_state != 1) return 0;
+    const int duration = tz_enemy_hit_state_duration(o->type);
+    if (duration <= 0) {
+        o->hit_state = 0;
+        return 0;
+    }
+    const uint32_t elapsed = g->behavior_tick - o->hit_tick;
+    if (elapsed < (uint32_t)duration) return 1;
+    o->hit_state = 0;
+    return 0;
+}
+
+static void set_enemy_hit_state(ZoneGame *g, struct WorldObject *o,
+                                int state, uint32_t elapsed_ticks) {
+    if (!g || !o) return;
+    o->hit_state = state;
+    o->hit_tick = g->behavior_tick - elapsed_ticks;
+}
+
 static void update_bee_ai(ZoneGame *g, struct WorldObject *o) {
     if (!g->player_alive || !o || !o->active || o->type != TZ_TYPE_BEE) return;
+
+    /* PPC 0x154A8: while +66 == 1 and less than 60 TickCount units have
+       elapsed, Bee skips steering/facing/fire and only keeps its existing
+       continuous motion. ZoneCore already integrates the retained velocity
+       after this handler, so returning here reproduces the visible coast. */
+    if (enemy_hit_state_active(g, o)) return;
+
     update_accelerative_chase_velocity(g, o);
     o->frame = frame24_toward(o->x, o->y, g->player_x, g->player_y);
 }
@@ -659,15 +688,21 @@ static void update_mother_ai(ZoneGame *g, struct WorldObject *o) {
 
 static void update_seeker_ai(ZoneGame *g, struct WorldObject *o) {
     if (!g->player_alive || !o || !o->active || o->type != TZ_TYPE_SEEK) return;
+
+    /* PPC 0x15944: +66 == 1 blocks the Seeker handler until 60 TickCount
+       units have elapsed from +92. Existing velocity remains authoritative
+       during the gate, so the body coasts but does not retarget or refire. */
+    if (enemy_hit_state_active(g, o)) return;
+
     const float dx = shortest_wrapped_delta(o->x, g->player_x, ZONE_LOGICAL_WIDTH);
     const float dy = shortest_wrapped_delta(o->y, g->player_y, ZONE_LOGICAL_HEIGHT);
     const float dist_sq = dx * dx + dy * dy;
     const float mag = sqrtf(dist_sq);
     if (mag <= 0.0001f) return;
 
-    /* Recovered seek handler 0x15944 switches at radius 200.  Fresh-game
+    /* Recovered seek handler 0x15944 switches at radius 200. Fresh-game
        cruise speed is 10; inside the radius it uses the runtime maximum. */
-    const float speed = dist_sq <= 40000.0f ? g->player_max_speed : 10.0f;
+    const float speed = tz_seeker_direct_speed(dist_sq, g->player_max_speed, 10.0f);
     o->vx = (dx / mag) * speed;
     o->vy = (dy / mag) * speed;
     o->frame = frame24_toward(o->x, o->y, g->player_x, g->player_y);
@@ -694,7 +729,7 @@ static void update_rotor_ai(ZoneGame *g, struct WorldObject *o) {
         const float dist_sq = dx * dx + dy * dy;
         const float mag = sqrtf(dist_sq);
         if (mag > 0.0001f) {
-            const float speed = dist_sq <= 40000.0f ? g->player_max_speed : 10.0f;
+            const float speed = tz_seeker_direct_speed(dist_sq, g->player_max_speed, 10.0f);
             o->vx = (dx / mag) * speed;
             o->vy = (dy / mag) * speed;
             o->rotor_heading = (frame24_toward(o->x, o->y, g->player_x, g->player_y) * 15) % 360;
@@ -838,6 +873,12 @@ static void update_enemy_fire(ZoneGame *g, int slot) {
     struct WorldObject *o = &g->world[slot];
     const int cap = o->active ? tz_enemy_fire_active_cap(o->type) : 0;
     if (cap <= 0 || o->hostile_shots >= cap) return;
+
+    /* Bee 0x154A8 and Seeker 0x15944 branch to their common return before
+       Random() while +66 is in its timed state. Preserve RNG call ordering by
+       suppressing the fire test itself rather than merely refusing the shot. */
+    if ((o->type == TZ_TYPE_BEE || o->type == TZ_TYPE_SEEK) &&
+        enemy_hit_state_active(g, o)) return;
 
     const int16_t random_word = (int16_t)(rng_next(g) & 0xFFFFu);
     if (tz_enemy_should_fire(o->type, random_word)) {
@@ -1316,6 +1357,15 @@ void zone_game_step(ZoneGame *g, ZoneInput in) {
                                              speed_after, g->shield_strength);
         }
 
+        /* PPC 0x1A0B4..0x1A0C8: player-body collision with a Seeker sets
+           +66 = 1 and stores TickCount - 30 in +92. Because the handler
+           clears at elapsed >= 60, this collision creates 30 ticks of the
+           remaining coast/stun interval. */
+        if (o->type == TZ_TYPE_SEEK) {
+            set_enemy_hit_state(g, o, 1,
+                (uint32_t)tz_seeker_player_collision_hit_backdate());
+        }
+
         if (damage > 0) {
             g->shields -= damage;
             if (g->shields <= 0) begin_player_death(g);
@@ -1559,6 +1609,17 @@ uint32_t zone_game_debug_world_subtype(const ZoneGame *g, int32_t index) {
 int32_t zone_game_debug_world_parent(const ZoneGame *g, int32_t index) {
     if (!g || index < 0 || index >= ZONE_WORLD_CAP || !g->world[index].active) return -1;
     return g->world[index].parent_slot;
+}
+
+int32_t zone_game_debug_world_hit_state(const ZoneGame *g, int32_t index) {
+    if (!g || index < 0 || index >= ZONE_WORLD_CAP || !g->world[index].active) return -1;
+    return g->world[index].hit_state;
+}
+
+void zone_game_debug_set_world_hit_state(ZoneGame *g, int32_t index,
+                                         int32_t state, uint32_t elapsed_ticks) {
+    if (!g || index < 0 || index >= ZONE_WORLD_CAP || !g->world[index].active) return;
+    set_enemy_hit_state(g, &g->world[index], state, elapsed_ticks);
 }
 
 int32_t zone_game_debug_world_defender_count(const ZoneGame *g, int32_t index) {

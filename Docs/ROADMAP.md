@@ -50,7 +50,7 @@ Recovered or substantially mapped:
 Major remaining lifts:
 
 - remaining Mother Base/HQ collision/state edge semantics and original shared-object-pool behavior;
-- Bee stun/return edge states around the now-live continuous-vector chase;
+- unresolved Bee/Seeker `+128` spatial-mode behavior around the now-live chase/hit-state handlers;
 - remaining Seeker edge states around the now-live 200-unit speed switch;
 - complete hostile projectile lifetime/collision special cases beyond the recovered base damage path;
 - full special-case collision matrix;
@@ -80,11 +80,13 @@ Completed:
 - 640×480 canonical logical game canvas with Retina scaling;
 - native macOS build verified running on hardware.
 
-Remaining platform work is primarily product/UI polish and iPad device validation, not architectural restructuring.
+Remaining platform work includes the planned display-independent high-refresh timebase/presentation track, followed by product/UI polish and iPad device validation.
 
-## Phase 3 — Live Classic gameplay reconstruction — ~68%
+## Phase 3 — Live Classic gameplay reconstruction — ~70%
 
-**Current phase: Milestone 1.2.**
+**Current phase: Milestone 1.3.**
+
+Milestone 1.3 completes the recovered Bee/Seeker timed hit-state behavior currently supported by the portable object model. Bee and Seeker now honor their 60-TickCount `+66/+92` coast gates; Seeker player collision applies the recovered 30-tick timestamp backdate; and Professional Wave 2 regression-tests a real other-Mother Bee donor. The earlier "Bee return" roadmap wording is corrected because PPC `0x154A8` contains no parent-return state.
 
 Milestone 1.2 is an instrumentation-only attribution phase on the accepted 1.1 build. It keeps ZoneCore and ZoneRenderer unchanged while measuring input, core simulation, audio drain, individual audio start, and HUD work independently so the remaining intermittent native stall can be repaired without another global timing change.
 
@@ -145,13 +147,24 @@ Milestone 1.0 promotes the linked Rotor guard state machine:
 - Rotor hostile fire uses the strict `(10000,15000)` signed-Random window and shared 3-shot cap;
 - Rotor destruction clears the parent link2 without corrupting the launched-defender counter.
 
+### Milestone 1.4 — High-refresh engine/timebase foundation
+
+Milestone 1.4 will decouple simulation time from display presentation without reintroducing interpolation/extrapolation as the foundation. The architecture track is:
+
+- benchmark headless ZoneCore at candidate fixed rates (240/480/720/960/1440 Hz) and select a rate with large minimum-hardware headroom;
+- introduce an integer, monotonic `ZoneTimebase` so a rendered frame is no longer synonymous with one game step;
+- schedule recovered Classic discrete semantics (AI/RNG/fire gates/timers) at their recovered cadence while allowing continuous dynamics to run at the selected high simulation rate;
+- present genuinely fresh simulation state at 60/120/144/165/240+ Hz and VRR/ProMotion rates without changing game speed;
+- preserve Classic TickCount-derived durations, including the Bee/Seeker 60-tick gate, independently of monitor refresh;
+- keep render interpolation/extrapolation optional rather than foundational.
+
 Next priorities:
 
-1. complete Bee stun/return and remaining Seeker edge states around the now-live pursuit cores;
-2. finish remaining Mother/HQ collision-state and original object-list/shared-capacity parity details;
-3. finish hostile-projectile lifetime and special collision consequences;
-4. complete wave-transition presentation and procedural waves 19+;
-5. remaining collision/destruction/equipment special cases.
+1. Milestone 1.4 display-independent timebase and high-refresh simulation/presentation architecture;
+2. remaining Mother/HQ collision-state and original object-list/shared-capacity parity details;
+3. hostile-projectile lifetime, death/respawn, and wave timing fidelity on the new timebase;
+4. wave-transition presentation and procedural waves 19+;
+5. remaining `+128` Bee/Seeker spatial mode, collision/destruction/equipment special cases, and Classic RNG parity.
 
 ## Phase 4 — Full Classic Mode — ~32%
 

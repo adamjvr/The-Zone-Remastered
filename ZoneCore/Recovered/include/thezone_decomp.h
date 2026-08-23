@@ -100,6 +100,12 @@ int16_t tz_enemy_axis_cap(uint32_t type);
 bool tz_enemy_should_fire(uint32_t type, int16_t random_word);
 int16_t tz_enemy_fire_active_cap(uint32_t type);
 float tz_enemy_projectile_speed(void);
+/* Bee 0x154A8 and Seeker 0x15944 inspect object +66 as a timed hit-state
+ * gate. Both use a 60-TickCount interval; Seeker player-body collision
+ * backdates +92 by 30 ticks, leaving half the interval. */
+int16_t tz_enemy_hit_state_duration(uint32_t type);
+int16_t tz_seeker_player_collision_hit_backdate(void);
+float tz_seeker_direct_speed(float distance_squared, float maximum_speed, float cruise_speed);
 bool tz_mother_should_launch_defenders(int16_t random_word);
 int16_t tz_mother_defender_active_cap(bool professional);
 int16_t tz_mother_defender_batch_count(bool professional, uint16_t random_word);

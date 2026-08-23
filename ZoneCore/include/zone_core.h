@@ -106,6 +106,9 @@ int32_t zone_game_debug_spawn_world(ZoneGame *game, uint32_t fourcc,
 void zone_game_debug_destroy_world(ZoneGame *game, int32_t index);
 uint32_t zone_game_debug_world_subtype(const ZoneGame *game, int32_t index);
 int32_t zone_game_debug_world_parent(const ZoneGame *game, int32_t index);
+int32_t zone_game_debug_world_hit_state(const ZoneGame *game, int32_t index);
+void zone_game_debug_set_world_hit_state(ZoneGame *game, int32_t index,
+                                         int32_t state, uint32_t elapsed_ticks);
 int32_t zone_game_debug_world_defender_count(const ZoneGame *game, int32_t index);
 int32_t zone_game_debug_trigger_mother_defense(ZoneGame *game, int32_t index,
                                                int16_t gate_word, uint16_t batch_word);
