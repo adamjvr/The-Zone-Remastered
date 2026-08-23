@@ -23,14 +23,35 @@ function value(name,    i,a) {
   }
   return ""
 }
-function msfield(s) { sub(/ms$/, "", s); return s + 0 }
+function legacy_ms(    i,s) {
+  for (i=1; i<=NF; ++i) {
+    s=$i
+    if (s ~ /^[0-9.]+ms$/) { sub(/ms$/, "", s); return s+0 }
+  }
+  return 0
+}
 /\[ZonePerf\]\[renderer\] sprite-preload/ { preload=$0 }
+/\[ZonePerf\]\[renderer\] presentation/ { presentation=value("requestedFPS") }
 /\[ZonePerf\]\[renderer\] texture-miss/ { textureMiss++ }
 /\[ZonePerf\]\[audio\] voice-steal/ { voiceSteal++ }
+/\[ZonePerf\]\[timebase\]/ {
+  timebase++
+  steps=value("classicSteps")+0
+  if (steps > 1) multiStep++
+  if (value("rebased")+0) rebase++
+  if (value("clamped")+0) clamp++
+  if (steps > maxCatchup) maxCatchup=steps
+}
 /\[ZonePerf\]\[renderer\] frame-gap/ {
   frameGap++
-  v=msfield($NF)
+  raw=value("gap")
+  v=(raw == "" ? legacy_ms() : raw+0)
   if (v > maxGap) { maxGap=v; maxGapFrame=value("frame") }
+}
+/\[ZonePerf\]\[host\] slow-advance/ {
+  slowAdvance++
+  v=value("total")+0
+  if (v > maxAdvance) { maxAdvance=v; maxAdvanceFrame=value("frame"); maxAdvanceSteps=value("classicSteps") }
 }
 /\[ZonePerf\]\[audio\] slow-trigger/ {
   slowAudio++
@@ -65,17 +86,26 @@ function msfield(s) { sub(/ms$/, "", s); return s + 0 }
   if (hud > maxHud) maxHud=hud
 }
 END {
+  if (presentation != "") printf "  requested presentation: %s Hz\n", presentation
   if (preload != "") print "  " preload
   printf "  frame gaps: %d", frameGap+0
   if (frameGap) printf " (max %.3f ms at frame %s)", maxGap, maxGapFrame
   print ""
 
-  printf "  host-detail slow steps: %d", host+0
+  printf "  timebase events: %d | multi-step: %d | rebases: %d | clamps: %d", timebase+0, multiStep+0, rebase+0, clamp+0
+  if (timebase) printf " | max catch-up: %d steps", maxCatchup+0
+  print ""
+
+  printf "  slow host advances: %d", slowAdvance+0
+  if (slowAdvance) printf " (max %.3f ms frame=%s steps=%s)", maxAdvance, maxAdvanceFrame, maxAdvanceSteps
+  print ""
+
+  printf "  host-detail slow Classic steps: %d", host+0
   if (host) printf " | >16.7 ms: %d | >20 ms: %d | >50 ms: %d\n", over16+0, over20+0, over50+0
   else print ""
 
   if (host) {
-    printf "  worst host step: %.3f ms at frame %s (dominant=%s)\n", maxTotal, maxTotalFrame, maxTotalDom
+    printf "  worst Classic step: %.3f ms at frame %s (dominant=%s)\n", maxTotal, maxTotalFrame, maxTotalDom
     printf "  stage maxima: input %.3f | core %.3f | drain %.3f | audio %.3f | hud %.3f ms\n", maxInput, maxCore, maxDrain, maxAudio, maxHud
     printf "  dominant-stage counts: input %d | core %d | drain %d | audio %d | hud %d\n", domCount["input"]+0, domCount["core"]+0, domCount["drain"]+0, domCount["audio"]+0, domCount["hud"]+0
   }

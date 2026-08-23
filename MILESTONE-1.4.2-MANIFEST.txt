@@ -1,0 +1,19 @@
+The Zone Remastered — Milestone 1.4.2 hotfix
+Nonblocking SFX Render Graph
+
+Expected working base:
+  committed Milestone 1.3: 92f4e1912310162992f067c70edb7133412b48ec
+  + uncommitted Milestone 1.4 high-refresh/timebase overlay
+  + Milestone 1.4.1 Raider fire-cap hotfix
+
+Payload:
+  APPLY-MILESTONE-1.4.2.command
+  Shared/ZoneAudioEngine.swift
+  Tools/verify-milestone-1.4.command
+  Docs/MILESTONE-1.4.2.md
+  Docs/RE-audio-render-graph.md
+
+Purpose:
+  Replace AVAudioPlayer trigger-time seek/play calls with one persistent
+  AVAudioEngine graph, predecoded AVAudioPCMBuffer samples, and prestarted
+  AVAudioPlayerNode voice pools. No ZoneCore/timebase/presentation change.

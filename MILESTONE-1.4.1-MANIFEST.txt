@@ -1,0 +1,17 @@
+The Zone Remastered — Milestone 1.4.1 pre-commit hotfix
+Raider hostile-fire active-cap regression correction
+
+Requires:
+  committed Milestone 1.3 HEAD 92f4e1912310162992f067c70edb7133412b48ec
+  Milestone 1.4 overlay already extracted/applied (the original verifier may have stopped at ZoneCore tests)
+
+Payload:
+  APPLY-MILESTONE-1.4.1.command
+  Tools/verify-milestone-1.4.command
+  Docs/MILESTONE-1.4.1.md
+
+Apply behavior:
+  - patches only tz_enemy_fire_active_cap() to include TZ_TYPE_RAID;
+  - replaces the 1.4 verifier with an exact-diff guard for that correction;
+  - reruns timebase tests, full ZoneCore regressions, benchmark and native-target checks;
+  - does not commit.

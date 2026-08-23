@@ -28,6 +28,7 @@ LOG="build/perf-logs/zone-perf-${STAMP}.log"
 
 echo "Launching: $APP"
 echo "Diagnostics log: $LOG"
+echo "Presentation override: ${ZONE_PRESENTATION_HZ:-native maximum}"
 echo "Play until you reproduce the hitch or clear a zone, then quit normally."
 echo
 
@@ -40,4 +41,4 @@ echo
 
 echo
 echo "Useful raw filter:"
-echo "  grep -E 'host-detail|slow-trigger|frame-gap|slow-step|slow-cpu-frame|texture-miss|voice-steal|sprite-preload' '$LOG'"
+echo "  grep -E 'presentation|timebase|host-detail|slow-trigger|frame-gap|slow-advance|slow-cpu-frame|texture-miss|voice-steal|sprite-preload' '$LOG'"

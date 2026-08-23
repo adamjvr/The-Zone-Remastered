@@ -1,0 +1,44 @@
+The Zone Remastered — Milestone 1.4 candidate
+Display-Independent Timebase & Native-Refresh Presentation
+Base commit: 92f4e1912310162992f067c70edb7133412b48ec
+
+Payload:
+  APPLY-MILESTONE-1.4.command
+  Shared/ZoneGameHost.swift
+  Shared/ZoneRenderer.swift
+  Shared/ZoneMetalView.swift
+  Docs/MILESTONE-1.4.md
+  Docs/RE-high-refresh-timebase.md
+  Tools/test-zone-timebase.command
+  Tools/zonecore-benchmark.c
+  Tools/benchmark-zonecore.command
+  Tools/run-macos-refresh.command
+  Tools/run-macos-perf.command
+  Tools/summarize-macos-perf.command
+  Tools/verify-milestone-1.4.command
+
+Apply-time documentation updates:
+  README.md
+  Docs/ROADMAP.md
+
+Architecture:
+  - 720-Hz monotonic master scheduling grid
+  - one unchanged Classic ZoneCore step every 12 master ticks (60 Hz)
+  - presentation requests the active display maximum independently
+  - no interpolation/extrapolation
+  - ZoneCore and ZoneAudioEngine are protected from modification by verifier
+  - 250-ms long-gap rebase and 8-step catch-up cap
+
+High-refresh testing:
+  Tools/run-macos-refresh.command native
+  Tools/run-macos-refresh.command 60
+  Tools/run-macos-refresh.command 120
+  Tools/run-macos-refresh.command 240
+
+Headless dynamics-rate research:
+  Tools/benchmark-zonecore.command
+  Reports candidate headroom for 240/480/720/960/1440 Hz.
+
+This milestone does NOT yet run continuous dynamics at 720 Hz. That promotion
+requires subsystem decomposition so recovered AI/RNG/timer semantics remain on
+their proven cadence.

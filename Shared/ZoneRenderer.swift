@@ -25,6 +25,7 @@ final class ZoneRenderer: NSObject, MTKViewDelegate {
   private let diagnosticsEnabled = ProcessInfo.processInfo.environment["ZONE_PERF_DIAGNOSTICS"] == "1"
   private var lastDrawTime: TimeInterval?
   private var frameNumber: UInt64 = 0
+  private var lastReportedPresentationFPS = 0
 
   init?(view: MTKView, host: ZoneGameHost) {
     guard
@@ -39,8 +40,10 @@ final class ZoneRenderer: NSObject, MTKViewDelegate {
 
     view.device = device
     view.colorPixelFormat = .bgra8Unorm
-    // Milestone 1.1 intentionally preserves the Milestone 1.0 host contract:
-    // one ZoneCore step per normal 60 Hz Metal presentation callback.
+    // 60 is only the safe pre-window fallback. ZoneMTKView promotes this to
+    // the active screen's maximum supported refresh once its screen is known.
+    // Game speed no longer depends on this value: ZoneGameHost advances from
+    // the monotonic 720-Hz master timebase instead of one step per draw call.
     view.preferredFramesPerSecond = 60
     view.enableSetNeedsDisplay = false
     view.isPaused = false
@@ -95,13 +98,7 @@ final class ZoneRenderer: NSObject, MTKViewDelegate {
 
     super.init()
 
-    // The 1.0 renderer decoded PNGs and created Metal textures on first use
-    // *inside draw(in:)*. Enemy orientation changes therefore had permission
-    // to perform filesystem/PNG/GPU allocation work on the real-time render
-    // path. Load the complete recovered sprite library once before the view is
-    // allowed to start presenting frames.
     preloadSpriteTextures()
-
     view.delegate = self
 
     var state: UInt32 = 0x1234_5678
@@ -152,7 +149,6 @@ final class ZoneRenderer: NSObject, MTKViewDelegate {
     if diagnosticsEnabled, missingTextureIDs.insert(id).inserted {
       print("[ZonePerf][renderer] texture-miss sprite=\(id)")
     }
-    // No filesystem access, PNG decode or Metal allocation is permitted here.
     return fallback
   }
 
@@ -173,9 +169,6 @@ final class ZoneRenderer: NSObject, MTKViewDelegate {
     var flashAmount = flash
     encoder.setFragmentBytes(&flashAmount, length: MemoryLayout<Float>.size, index: 0)
 
-    // 1.0 built a fresh six-element Swift Array for every star and every
-    // sprite every frame. Use temporary stack storage instead so the render
-    // hot path has no per-quad heap allocation.
     withUnsafeTemporaryAllocation(of: Vertex.self, capacity: 6) { vertices in
       vertices[0] = Vertex(position: [left, top], uv: [0, 0])
       vertices[1] = Vertex(position: [left, bottom], uv: [0, 1])
@@ -195,22 +188,37 @@ final class ZoneRenderer: NSObject, MTKViewDelegate {
   func draw(in view: MTKView) {
     let frameStart = ProcessInfo.processInfo.systemUptime
     frameNumber &+= 1
+
+    let requestedFPS = max(1, view.preferredFramesPerSecond)
+    if diagnosticsEnabled && requestedFPS != lastReportedPresentationFPS {
+      lastReportedPresentationFPS = requestedFPS
+      print("[ZonePerf][renderer] presentation requestedFPS=\(requestedFPS)")
+    }
+
     if diagnosticsEnabled, let last = lastDrawTime {
       let gapMS = (frameStart - last) * 1000
-      // A 60 Hz callback is ~16.67 ms. Log only conspicuous misses so the
-      // diagnostic itself does not flood stdout and create more stutter.
-      if gapMS > 24.0 {
-        print(String(format: "[ZonePerf][renderer] frame-gap frame=%llu %.3fms", frameNumber, gapMS))
+      let expectedMS = 1000.0 / Double(requestedFPS)
+      // Scale the old 60-Hz ~24 ms detector to the active display cadence,
+      // but never make the threshold so small that stdout becomes the hitch.
+      let thresholdMS = max(6.0, expectedMS * 1.45)
+      if gapMS > thresholdMS {
+        print(
+          String(
+            format: "[ZonePerf][renderer] frame-gap frame=%llu gap=%.3f expected=%.3f fps=%d",
+            frameNumber, gapMS, expectedMS, requestedFPS))
       }
     }
     lastDrawTime = frameStart
 
-    let stepStart = diagnosticsEnabled ? ProcessInfo.processInfo.systemUptime : 0
-    host.step()
+    let advanceStart = diagnosticsEnabled ? ProcessInfo.processInfo.systemUptime : 0
+    let classicSteps = host.advance(presentationTime: frameStart)
     if diagnosticsEnabled {
-      let stepMS = (ProcessInfo.processInfo.systemUptime - stepStart) * 1000
-      if stepMS > 4.0 {
-        print(String(format: "[ZonePerf][host] slow-step frame=%llu %.3fms", frameNumber, stepMS))
+      let advanceMS = (ProcessInfo.processInfo.systemUptime - advanceStart) * 1000
+      if advanceMS > 4.0 {
+        print(
+          String(
+            format: "[ZonePerf][host] slow-advance frame=%llu total=%.3f classicSteps=%d fps=%d",
+            frameNumber, advanceMS, classicSteps, requestedFPS))
       }
     }
 
@@ -286,7 +294,10 @@ final class ZoneRenderer: NSObject, MTKViewDelegate {
     if diagnosticsEnabled {
       let cpuMS = (ProcessInfo.processInfo.systemUptime - frameStart) * 1000
       if cpuMS > 8.0 {
-        print(String(format: "[ZonePerf][renderer] slow-cpu-frame frame=%llu %.3fms items=%d", frameNumber, cpuMS, count))
+        print(
+          String(
+            format: "[ZonePerf][renderer] slow-cpu-frame frame=%llu %.3fms items=%d classicSteps=%d fps=%d",
+            frameNumber, cpuMS, count, classicSteps, requestedFPS))
       }
     }
   }

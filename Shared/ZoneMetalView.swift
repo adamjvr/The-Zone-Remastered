@@ -1,5 +1,15 @@
+import Foundation
 import MetalKit
 import SwiftUI
+
+private func zonePresentationTargetFPS(maximum: Int) -> Int {
+  let maxFPS = max(1, maximum)
+  if let raw = ProcessInfo.processInfo.environment["ZONE_PRESENTATION_HZ"],
+     let requested = Int(raw), requested > 0 {
+    return min(maxFPS, requested)
+  }
+  return maxFPS
+}
 
 #if os(macOS)
   import AppKit
@@ -38,10 +48,30 @@ import SwiftUI
 
   final class ZoneMTKView: MTKView {
     weak var inputRouter: ZoneInputRouter?
+    private var screenObserver: NSObjectProtocol?
     override var acceptsFirstResponder: Bool { true }
+
+    deinit {
+      if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
+    }
+
+    func refreshPreferredFrameRate() {
+      guard let screen = window?.screen else { return }
+      preferredFramesPerSecond = zonePresentationTargetFPS(maximum: screen.maximumFramesPerSecond)
+    }
 
     override func viewDidMoveToWindow() {
       super.viewDidMoveToWindow()
+      if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
+      screenObserver = nil
+      if let window {
+        screenObserver = NotificationCenter.default.addObserver(
+          forName: NSWindow.didChangeScreenNotification,
+          object: window,
+          queue: .main
+        ) { [weak self] _ in self?.refreshPreferredFrameRate() }
+      }
+      refreshPreferredFrameRate()
       window?.makeFirstResponder(self)
     }
 
@@ -77,6 +107,7 @@ import SwiftUI
     }
 
     func updateNSView(_ nsView: ZoneMTKView, context: Context) {
+      nsView.refreshPreferredFrameRate()
       // The pause menu temporarily owns first responder for key capture. Give
       // keyboard control back to gameplay as soon as the game resumes.
       if !host.hud.paused && nsView.window?.firstResponder !== nsView {
@@ -89,7 +120,19 @@ import SwiftUI
   }
 #else
   import UIKit
-  final class ZoneMTKView: MTKView {}
+
+  final class ZoneMTKView: MTKView {
+    func refreshPreferredFrameRate() {
+      guard let screen = window?.screen else { return }
+      preferredFramesPerSecond = zonePresentationTargetFPS(maximum: screen.maximumFramesPerSecond)
+    }
+
+    override func didMoveToWindow() {
+      super.didMoveToWindow()
+      refreshPreferredFrameRate()
+    }
+  }
+
   struct ZoneMetalView: UIViewRepresentable {
     @ObservedObject var host: ZoneGameHost
     func makeUIView(context: Context) -> ZoneMTKView {
@@ -97,7 +140,9 @@ import SwiftUI
       context.coordinator.renderer = ZoneRenderer(view: v, host: host)
       return v
     }
-    func updateUIView(_ uiView: ZoneMTKView, context: Context) {}
+    func updateUIView(_ uiView: ZoneMTKView, context: Context) {
+      uiView.refreshPreferredFrameRate()
+    }
     func makeCoordinator() -> Coordinator { Coordinator() }
     final class Coordinator { var renderer: ZoneRenderer? }
   }

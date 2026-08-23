@@ -14,6 +14,93 @@ struct ZoneHUDSnapshot {
   var paused = false
 }
 
+// ZONE_TIMEBASE_BEGIN
+struct ZoneTimebasePlan {
+  let classicSteps: Int
+  let masterTicksElapsed: UInt64
+  let rebased: Bool
+  let catchUpClamped: Bool
+}
+
+struct ZoneTimebase {
+  // 720 Hz is the master scheduling grid for the high-refresh architecture.
+  // Milestone 1.4 does NOT run Classic gameplay 720 times/second: twelve
+  // master ticks schedule one authoritative Classic step (60 Hz). Later work
+  // can promote continuous dynamics onto the master grid while leaving
+  // recovered AI/RNG/timer semantics on their proven Classic cadence.
+  static let masterHz: UInt64 = 720
+  static let classicHz: UInt64 = 60
+  static let masterTicksPerClassicStep: UInt64 = masterHz / classicHz
+  static let maximumPresentationGap: TimeInterval = 0.250
+  static let maximumClassicStepsPerPresentation = 8
+
+  private var originTime: TimeInterval?
+  private var lastPresentationTime: TimeInterval?
+  private var emittedMasterTicks: UInt64 = 0
+  private var pendingMasterTicks: UInt64 = 0
+
+  mutating func reset(at now: TimeInterval) {
+    originTime = now
+    lastPresentationTime = now
+    emittedMasterTicks = 0
+    pendingMasterTicks = 0
+  }
+
+  mutating func plan(at now: TimeInterval) -> ZoneTimebasePlan {
+    guard let origin = originTime, let last = lastPresentationTime else {
+      reset(at: now)
+      // Preserve the established contract that the first visible draw advances
+      // the game once, then continue from monotonic elapsed time.
+      return ZoneTimebasePlan(
+        classicSteps: 1, masterTicksElapsed: 0, rebased: false, catchUpClamped: false)
+    }
+
+    let presentationGap = now - last
+    if presentationGap < 0 || presentationGap > Self.maximumPresentationGap {
+      // Do not simulate a giant backlog after sleep/backgrounding/debugger
+      // stops. Rebase and advance one Classic step, exactly as a fresh first
+      // presentation would.
+      reset(at: now)
+      return ZoneTimebasePlan(
+        classicSteps: 1, masterTicksElapsed: 0, rebased: true, catchUpClamped: false)
+    }
+    lastPresentationTime = now
+
+    let elapsed = max(0, now - origin)
+    let targetDouble = (elapsed * Double(Self.masterHz)).rounded()
+    let targetMasterTicks = targetDouble <= 0 ? 0 : UInt64(targetDouble)
+
+    if targetMasterTicks < emittedMasterTicks {
+      reset(at: now)
+      return ZoneTimebasePlan(
+        classicSteps: 1, masterTicksElapsed: 0, rebased: true, catchUpClamped: false)
+    }
+
+    let newlyElapsed = targetMasterTicks - emittedMasterTicks
+    emittedMasterTicks = targetMasterTicks
+    pendingMasterTicks &+= newlyElapsed
+
+    var due = Int(pendingMasterTicks / Self.masterTicksPerClassicStep)
+    pendingMasterTicks %= Self.masterTicksPerClassicStep
+
+    var clamped = false
+    if due > Self.maximumClassicStepsPerPresentation {
+      due = Self.maximumClassicStepsPerPresentation
+      clamped = true
+      // Wall-clock time has already been consumed into emittedMasterTicks.
+      // Dropping excessive backlog is intentional: a long stall must not turn
+      // into a visible multi-frame spiral of death.
+    }
+
+    return ZoneTimebasePlan(
+      classicSteps: due,
+      masterTicksElapsed: newlyElapsed,
+      rebased: false,
+      catchUpClamped: clamped)
+  }
+}
+// ZONE_TIMEBASE_END
+
 final class ZoneGameHost: ObservableObject {
   let input = ZoneInputRouter()
   let controllers = ZoneControllerManager()
@@ -23,9 +110,10 @@ final class ZoneGameHost: ObservableObject {
   let game: OpaquePointer
   private var cancellables: Set<AnyCancellable> = []
   private var hudDivider = 0
+  private var timebase = ZoneTimebase()
 
-  // Milestone 1.2 attribution is opt-in. Normal gameplay pays only this cached
-  // boolean branch and otherwise follows the Milestone 1.1 host behavior.
+  // Milestone 1.2 attribution remains opt-in. Normal gameplay pays only cached
+  // boolean branches; Milestone 1.4 adds timebase diagnostics only when enabled.
   private let diagnosticsEnabled = ProcessInfo.processInfo.environment["ZONE_PERF_DIAGNOSTICS"] == "1"
   private var diagnosticsFrame: UInt64 = 0
 
@@ -38,9 +126,28 @@ final class ZoneGameHost: ObservableObject {
   }
   deinit { zone_game_destroy(game) }
 
-  func step() {
+  /// Advance authoritative Classic simulation according to monotonic time,
+  /// independently of how often Metal asks us to present. Returns the number
+  /// of 60-Hz Classic steps actually executed for this presentation callback.
+  @discardableResult
+  func advance(presentationTime: TimeInterval) -> Int {
+    let plan = timebase.plan(at: presentationTime)
+    if diagnosticsEnabled && (plan.rebased || plan.catchUpClamped || plan.classicSteps > 1) {
+      print(
+        "[ZonePerf][timebase] master=\(plan.masterTicksElapsed) classicSteps=\(plan.classicSteps) " +
+        "rebased=\(plan.rebased ? 1 : 0) clamped=\(plan.catchUpClamped ? 1 : 0)"
+      )
+    }
+    if plan.classicSteps > 0 {
+      for _ in 0..<plan.classicSteps { step() }
+    }
+    return plan.classicSteps
+  }
+
+  /// One authoritative Classic game step. Presentation code should call
+  /// advance(presentationTime:) instead of calling this directly.
+  private func step() {
     if !diagnosticsEnabled {
-      // Keep the accepted Milestone 1.1 path compact and behavior-identical.
       let sampled = input.sample(controller: controllers)
       zone_game_step(game, sampled)
       var events = Array(repeating: ZoneAudioEvent(), count: 16)
@@ -116,8 +223,6 @@ final class ZoneGameHost: ObservableObject {
     let hudMS = (ProcessInfo.processInfo.systemUptime - hudStart) * 1000
     let totalMS = (ProcessInfo.processInfo.systemUptime - totalStart) * 1000
 
-    // Match the renderer's existing slow-step gate. Only slow diagnostic steps
-    // pay for the extra state probes/string formatting below.
     if totalMS > 4.0 {
       var dominant = "input"
       var dominantMS = inputMS

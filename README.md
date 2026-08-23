@@ -2,7 +2,7 @@
   <img src="Docs/images/TheZoneRemastered-Ship.png" alt="The Zone Remastered ship" width="720">
 </p>
 
-# The Zone Remastered — Engineering Milestone 1.3
+# The Zone Remastered — Engineering Milestone 1.4
 
 Native Apple remaster built from the reverse-engineered *TheZone* 1.5.1 game logic and assets.
 
@@ -11,6 +11,14 @@ Native Apple remaster built from the reverse-engineered *TheZone* 1.5.1 game log
 - **The Zone macOS** — native macOS application, verified building and running on macOS 15 Sequoia. Keyboard is canonical; controllers exposed by Apple's `GameController.framework` are supported as an alternate input path.
 - **The Zone iPadOS** — separate native iPadOS application target. Apple-supported game controllers are first-class; touch controls remain available when no controller is connected.
 - **ZoneCore** — deterministic portable C engine library, with no AppKit/UIKit/Metal dependencies.
+
+## Milestone 1.4 — Display-Independent Timebase & Native-Refresh Presentation
+
+Milestone 1.4 breaks the old one-render-callback/one-game-step coupling. A monotonic **720-Hz master scheduling grid** now drives the host, with one authoritative Classic step every **12 master ticks = 60 Hz**, while Metal presentation requests the active screen's native maximum refresh. 120/144/165/240-Hz presentation therefore no longer changes game speed.
+
+This is deliberately the foundation, not a fake-smoothing layer: there is no interpolation or extrapolation, and ZoneCore gameplay remains unchanged. The package also adds a headless Wave-18 benchmark for 240/480/720/960/1440-Hz candidate dynamics rates. Continuous motion can be promoted to the high-rate grid only after benchmark and regression evidence justify it.
+
+Detailed notes: [`Docs/MILESTONE-1.4.md`](Docs/MILESTONE-1.4.md) and [`Docs/RE-high-refresh-timebase.md`](Docs/RE-high-refresh-timebase.md).
 
 ## Milestone 1.3 — Bee & Seeker State Completion
 

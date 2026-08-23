@@ -109,6 +109,7 @@ int16_t tz_enemy_fire_active_cap(uint32_t type) {
     switch (type) {
         case TZ_TYPE_BLOO:
         case TZ_TYPE_BEE:
+        case TZ_TYPE_RAID:
         case TZ_TYPE_SEEK:
         case TZ_TYPE_ROTO:
             return 3;

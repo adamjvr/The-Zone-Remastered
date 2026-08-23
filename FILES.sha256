@@ -1,10 +1,6 @@
-e1059bd989d2ff547b7f054456716e659662ab9f401af7e0ed58057ad48cbc1c  ./APPLY-MILESTONE-1.3.command
-2a9dbbaa1e9975c94455e9a049a3523490e5fd5c9bed8009b2b689d68f817990  ./Docs/MILESTONE-1.3.md
-f5fc04df1ff6a5a67039ee883d78784e36bde36b8c9706c64fbd4e0735ddee67  ./Docs/RE-bee-seeker.md
-d756b4ed0c99274cbafacb1c716ab1011948dac92f7785976139b545daab9ed5  ./MILESTONE-1.3-MANIFEST.txt
-a800a45a81de133ce16ce1b9ad047690af2a2798d9377068c42b757029a4cd92  ./Tools/verify-milestone-1.3.command
-6c513b5a9645b20bbd1a45c47b1a208f01057b41350f2646e14cccee4eb2817d  ./ZoneCore/Recovered/include/thezone_decomp.h
-c4ff19689fe5dce1886abc8b6694f1fd27ccaf5f599ff0a5c00fcdd6972b06d5  ./ZoneCore/Recovered/src/ai.c
-442d8fa6cb9b1ffe88ba2819936198b87f3fc1c5c94faebb835bf00f2cacf0d4  ./ZoneCore/include/zone_core.h
-bfa4f669546da43e05435db18946e20370c53e42052ea5c238574d2dacd8e02b  ./ZoneCore/src/zone_core.c
-b2c5a5a4e4417c64c234c41c0ce36dbcd80f7aba3a5d84ebe2be4b98cf82a4c5  ./ZoneCore/tests/test_zone_core.c
+2b253f698283e4498fbacabe23ff16efef668c436416978f2b07b9d5b2f60dfd  ./APPLY-MILESTONE-1.4.2.command
+eba93b521ef375f499796dd4d950611fb7d15709ea14ed4b2ef7dc979d6d1abd  ./Docs/MILESTONE-1.4.2.md
+567404f620f1f6b5c461b3740e1240fbbaf133424217267c5f5b66372db692eb  ./Docs/RE-audio-render-graph.md
+a199fcfae38de7bbd059f29ccd41551525f485a8a469c53f9c953882bb311029  ./MILESTONE-1.4.2-MANIFEST.txt
+573f1fbdb25109a6c59a73682d38fb1dc1b02fb594d09a21f8b07604a25bda00  ./Shared/ZoneAudioEngine.swift
+a090755747ffadb2967fdfda2899e9fcc3445767bdcdd82f46b7f2fafb614000  ./Tools/verify-milestone-1.4.command

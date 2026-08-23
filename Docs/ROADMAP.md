@@ -84,7 +84,7 @@ Remaining platform work includes the planned display-independent high-refresh ti
 
 ## Phase 3 — Live Classic gameplay reconstruction — ~70%
 
-**Current phase: Milestone 1.3.**
+**Current phase: Milestone 1.4.**
 
 Milestone 1.3 completes the recovered Bee/Seeker timed hit-state behavior currently supported by the portable object model. Bee and Seeker now honor their 60-TickCount `+66/+92` coast gates; Seeker player collision applies the recovered 30-tick timestamp backdate; and Professional Wave 2 regression-tests a real other-Mother Bee donor. The earlier "Bee return" roadmap wording is corrected because PPC `0x154A8` contains no parent-return state.
 
@@ -149,14 +149,17 @@ Milestone 1.0 promotes the linked Rotor guard state machine:
 
 ### Milestone 1.4 — High-refresh engine/timebase foundation
 
-Milestone 1.4 will decouple simulation time from display presentation without reintroducing interpolation/extrapolation as the foundation. The architecture track is:
+Milestone 1.4 establishes the display-independent timebase foundation without reintroducing interpolation/extrapolation. The live architecture now:
 
-- benchmark headless ZoneCore at candidate fixed rates (240/480/720/960/1440 Hz) and select a rate with large minimum-hardware headroom;
-- introduce an integer, monotonic `ZoneTimebase` so a rendered frame is no longer synonymous with one game step;
-- schedule recovered Classic discrete semantics (AI/RNG/fire gates/timers) at their recovered cadence while allowing continuous dynamics to run at the selected high simulation rate;
-- present genuinely fresh simulation state at 60/120/144/165/240+ Hz and VRR/ProMotion rates without changing game speed;
-- preserve Classic TickCount-derived durations, including the Bee/Seeker 60-tick gate, independently of monitor refresh;
-- keep render interpolation/extrapolation optional rather than foundational.
+- provides a monotonic integer **720-Hz master scheduling grid**;
+- schedules the unchanged authoritative Classic game step every **12 master ticks = 60 Hz**;
+- requests the active macOS/iPadOS screen's native maximum presentation rate, with a diagnostic Hz override;
+- proves 60/120/144/165/240-Hz presentation cannot change Classic game speed;
+- adds an optimized headless ZoneCore benchmark for 240/480/720/960/1440-Hz candidate dynamics rates;
+- preserves Classic TickCount-derived durations independently of monitor refresh;
+- keeps interpolation/extrapolation out of the foundational path.
+
+The next high-refresh promotion is to decompose continuous dynamics from the monolithic Classic step and move only rate-correct motion/integration onto the master grid. AI/RNG/fire gates/timers remain on recovered cadence.
 
 Next priorities:
 
