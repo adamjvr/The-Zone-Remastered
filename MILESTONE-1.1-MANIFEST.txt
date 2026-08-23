@@ -1,0 +1,22 @@
+The Zone Remastered — Milestone 1.1 candidate
+Real-Time Hot-Path Repair
+Base commit: 6df5e5da9985eaa379a385c5e49af49c8f9e912c
+
+Payload:
+  APPLY-MILESTONE-1.1.command
+  Shared/ZoneRenderer.swift
+  Shared/ZoneAudioEngine.swift
+  Docs/MILESTONE-1.1.md
+  Docs/RE-realtime-hotpaths.md
+  Tools/verify-milestone-1.1.command
+  Tools/run-macos-perf.command
+
+Apply-time behavior:
+  - requires exact committed Milestone 1.0 HEAD;
+  - backs up any lingering rejected-1.1 timing/core diff;
+  - restores ZoneCore + ZoneGameHost + roadmap/README baseline where prior experiments touched them;
+  - removes old fixed-step/interpolation experiment files;
+  - advances ROADMAP current-phase marker to the narrow 1.1 repair candidate;
+  - runs full ZoneCore, Swift parse and native-target verification.
+
+No ZoneCore file is shipped in this package.

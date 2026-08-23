@@ -16,8 +16,15 @@ final class ZoneRenderer: NSObject, MTKViewDelegate {
   private let sampler: MTLSamplerState
   private let loader: MTKTextureLoader
   private var textures: [Int32: MTLTexture] = [:]
+  private var missingTextureIDs: Set<Int32> = []
   private let fallback: MTLTexture
   private var stars: [(Float, Float, Float)] = []
+
+  // Diagnostics are opt-in so normal gameplay does not spend time printing or
+  // collecting per-frame telemetry. Use Tools/run-macos-perf.command.
+  private let diagnosticsEnabled = ProcessInfo.processInfo.environment["ZONE_PERF_DIAGNOSTICS"] == "1"
+  private var lastDrawTime: TimeInterval?
+  private var frameNumber: UInt64 = 0
 
   init?(view: MTKView, host: ZoneGameHost) {
     guard
@@ -32,6 +39,8 @@ final class ZoneRenderer: NSObject, MTKViewDelegate {
 
     view.device = device
     view.colorPixelFormat = .bgra8Unorm
+    // Milestone 1.1 intentionally preserves the Milestone 1.0 host contract:
+    // one ZoneCore step per normal 60 Hz Metal presentation callback.
     view.preferredFramesPerSecond = 60
     view.enableSetNeedsDisplay = false
     view.isPaused = false
@@ -85,6 +94,14 @@ final class ZoneRenderer: NSObject, MTKViewDelegate {
     self.fallback = fallback
 
     super.init()
+
+    // The 1.0 renderer decoded PNGs and created Metal textures on first use
+    // *inside draw(in:)*. Enemy orientation changes therefore had permission
+    // to perform filesystem/PNG/GPU allocation work on the real-time render
+    // path. Load the complete recovered sprite library once before the view is
+    // allowed to start presenting frames.
+    preloadSpriteTextures()
+
     view.delegate = self
 
     var state: UInt32 = 0x1234_5678
@@ -99,34 +116,44 @@ final class ZoneRenderer: NSObject, MTKViewDelegate {
 
   func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
 
-  private func texture(_ id: Int32) -> MTLTexture {
-    if let texture = textures[id] { return texture }
-    let name = String(format: "Spri_%05d", id)
-    if let url = Bundle.main.url(forResource: name, withExtension: "png", subdirectory: "Sprites"),
-      let texture = try? loader.newTexture(
-        URL: url,
-        options: [.SRGB: false, .generateMipmaps: false]
-      )
-    {
-      textures[id] = texture
-      return texture
-    }
-    return fallback
+  private static func spriteID(from url: URL) -> Int32? {
+    let stem = url.deletingPathExtension().lastPathComponent
+    guard stem.hasPrefix("Spri_") else { return nil }
+    return Int32(String(stem.dropFirst(5)))
   }
 
-  private func vertices(x: Float, y: Float, side: Float) -> [Vertex] {
-    let left = (x - side / 2) / 640 * 2 - 1
-    let right = (x + side / 2) / 640 * 2 - 1
-    let top = 1 - (y - side / 2) / 480 * 2
-    let bottom = 1 - (y + side / 2) / 480 * 2
-    return [
-      Vertex(position: [left, top], uv: [0, 0]),
-      Vertex(position: [left, bottom], uv: [0, 1]),
-      Vertex(position: [right, top], uv: [1, 0]),
-      Vertex(position: [right, top], uv: [1, 0]),
-      Vertex(position: [left, bottom], uv: [0, 1]),
-      Vertex(position: [right, bottom], uv: [1, 1]),
+  private func preloadSpriteTextures() {
+    let options: [MTKTextureLoader.Option: Any] = [
+      .SRGB: false,
+      .generateMipmaps: false,
     ]
+    let urls = Bundle.main.urls(forResourcesWithExtension: "png", subdirectory: "Sprites") ?? []
+    var loaded = 0
+    var failed = 0
+
+    for url in urls {
+      guard let id = Self.spriteID(from: url) else { continue }
+      if let texture = try? loader.newTexture(URL: url, options: options) {
+        textures[id] = texture
+        loaded += 1
+      } else {
+        missingTextureIDs.insert(id)
+        failed += 1
+      }
+    }
+
+    if diagnosticsEnabled {
+      print("[ZonePerf][renderer] sprite-preload urls=\(urls.count) loaded=\(loaded) failed=\(failed)")
+    }
+  }
+
+  private func texture(_ id: Int32) -> MTLTexture {
+    if let texture = textures[id] { return texture }
+    if diagnosticsEnabled, missingTextureIDs.insert(id).inserted {
+      print("[ZonePerf][renderer] texture-miss sprite=\(id)")
+    }
+    // No filesystem access, PNG decode or Metal allocation is permitted here.
+    return fallback
   }
 
   private func drawQuad(
@@ -137,22 +164,55 @@ final class ZoneRenderer: NSObject, MTKViewDelegate {
     texture: MTLTexture,
     flash: Float = 0
   ) {
-    let vertices = vertices(x: x, y: y, side: side)
+    let left = (x - side / 2) / 640 * 2 - 1
+    let right = (x + side / 2) / 640 * 2 - 1
+    let top = 1 - (y - side / 2) / 480 * 2
+    let bottom = 1 - (y + side / 2) / 480 * 2
+
     encoder.setFragmentTexture(texture, index: 0)
     var flashAmount = flash
     encoder.setFragmentBytes(&flashAmount, length: MemoryLayout<Float>.size, index: 0)
-    vertices.withUnsafeBufferPointer { pointer in
+
+    // 1.0 built a fresh six-element Swift Array for every star and every
+    // sprite every frame. Use temporary stack storage instead so the render
+    // hot path has no per-quad heap allocation.
+    withUnsafeTemporaryAllocation(of: Vertex.self, capacity: 6) { vertices in
+      vertices[0] = Vertex(position: [left, top], uv: [0, 0])
+      vertices[1] = Vertex(position: [left, bottom], uv: [0, 1])
+      vertices[2] = Vertex(position: [right, top], uv: [1, 0])
+      vertices[3] = Vertex(position: [right, top], uv: [1, 0])
+      vertices[4] = Vertex(position: [left, bottom], uv: [0, 1])
+      vertices[5] = Vertex(position: [right, bottom], uv: [1, 1])
       encoder.setVertexBytes(
-        pointer.baseAddress!,
-        length: pointer.count * MemoryLayout<Vertex>.stride,
+        vertices.baseAddress!,
+        length: 6 * MemoryLayout<Vertex>.stride,
         index: 0
       )
+      encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6)
     }
-    encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6)
   }
 
   func draw(in view: MTKView) {
+    let frameStart = ProcessInfo.processInfo.systemUptime
+    frameNumber &+= 1
+    if diagnosticsEnabled, let last = lastDrawTime {
+      let gapMS = (frameStart - last) * 1000
+      // A 60 Hz callback is ~16.67 ms. Log only conspicuous misses so the
+      // diagnostic itself does not flood stdout and create more stutter.
+      if gapMS > 24.0 {
+        print(String(format: "[ZonePerf][renderer] frame-gap frame=%llu %.3fms", frameNumber, gapMS))
+      }
+    }
+    lastDrawTime = frameStart
+
+    let stepStart = diagnosticsEnabled ? ProcessInfo.processInfo.systemUptime : 0
     host.step()
+    if diagnosticsEnabled {
+      let stepMS = (ProcessInfo.processInfo.systemUptime - stepStart) * 1000
+      if stepMS > 4.0 {
+        print(String(format: "[ZonePerf][host] slow-step frame=%llu %.3fms", frameNumber, stepMS))
+      }
+    }
 
     guard
       let pass = view.currentRenderPassDescriptor,
@@ -222,5 +282,12 @@ final class ZoneRenderer: NSObject, MTKViewDelegate {
     encoder.endEncoding()
     commandBuffer.present(drawable)
     commandBuffer.commit()
+
+    if diagnosticsEnabled {
+      let cpuMS = (ProcessInfo.processInfo.systemUptime - frameStart) * 1000
+      if cpuMS > 8.0 {
+        print(String(format: "[ZonePerf][renderer] slow-cpu-frame frame=%llu %.3fms items=%d", frameNumber, cpuMS, count))
+      }
+    }
   }
 }

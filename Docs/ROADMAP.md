@@ -84,7 +84,9 @@ Remaining platform work is primarily product/UI polish and iPad device validatio
 
 ## Phase 3 — Live Classic gameplay reconstruction — ~68%
 
-**Current phase: Milestone 1.0.**
+**Current phase: Milestone 1.1.**
+
+Milestone 1.1 is a narrow real-time hot-path repair on the committed 1.0 gameplay baseline. It keeps ZoneCore and the 60-Hz host stepping contract unchanged while removing first-use PNG/Metal texture construction and per-event WAV/player construction from active gameplay. Opt-in hitch telemetry is included before any further timing-model changes.
 
 Delivered through 0.5:
 
