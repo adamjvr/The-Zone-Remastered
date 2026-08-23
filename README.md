@@ -2,7 +2,7 @@
   <img src="Docs/images/TheZoneRemastered-Ship.png" alt="The Zone Remastered ship" width="720">
 </p>
 
-# The Zone Remastered — Engineering Milestone 1.0
+# The Zone Remastered — Engineering Milestone 1.2
 
 Native Apple remaster built from the reverse-engineered *TheZone* 1.5.1 game logic and assets.
 
@@ -11,6 +11,18 @@ Native Apple remaster built from the reverse-engineered *TheZone* 1.5.1 game log
 - **The Zone macOS** — native macOS application, verified building and running on macOS 15 Sequoia. Keyboard is canonical; controllers exposed by Apple's `GameController.framework` are supported as an alternate input path.
 - **The Zone iPadOS** — separate native iPadOS application target. Apple-supported game controllers are first-class; touch controls remain available when no controller is connected.
 - **ZoneCore** — deterministic portable C engine library, with no AppKit/UIKit/Metal dependencies.
+
+## Milestone 1.2 — Host Stall Attribution
+
+Milestone 1.2 keeps the accepted 1.1 gameplay/rendering behavior unchanged and splits remaining slow `host.step()` frames into input, ZoneCore, audio-drain, audio-trigger, and HUD stages. Audio triggers are independently split into player rewind and `AVAudioPlayer.play()` timing. The diagnostic runner now prints an automatic compact summary after each perf session.
+
+Detailed notes: [`Docs/MILESTONE-1.2.md`](Docs/MILESTONE-1.2.md).
+
+## Milestone 1.1 — Real-Time Hot-Path Repair
+
+Milestone 1.1 removed synchronous sprite texture construction and per-event audio-player construction from active gameplay while preserving the Milestone 1.0 ZoneCore/60-Hz host contract. Extended play testing successfully cleared Zone 1 with all 651 sprite textures preloaded and no observed texture-cache misses or 16-voice-bank exhaustion.
+
+Detailed notes: [`Docs/MILESTONE-1.1.md`](Docs/MILESTONE-1.1.md).
 
 ## Milestone 1.0 — Rotor Orbit, Attack & Return AI
 

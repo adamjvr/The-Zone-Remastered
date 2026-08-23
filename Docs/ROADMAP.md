@@ -84,7 +84,9 @@ Remaining platform work is primarily product/UI polish and iPad device validatio
 
 ## Phase 3 — Live Classic gameplay reconstruction — ~68%
 
-**Current phase: Milestone 1.1.**
+**Current phase: Milestone 1.2.**
+
+Milestone 1.2 is an instrumentation-only attribution phase on the accepted 1.1 build. It keeps ZoneCore and ZoneRenderer unchanged while measuring input, core simulation, audio drain, individual audio start, and HUD work independently so the remaining intermittent native stall can be repaired without another global timing change.
 
 Milestone 1.1 is a narrow real-time hot-path repair on the committed 1.0 gameplay baseline. It keeps ZoneCore and the 60-Hz host stepping contract unchanged while removing first-use PNG/Metal texture construction and per-event WAV/player construction from active gameplay. Opt-in hitch telemetry is included before any further timing-model changes.
 

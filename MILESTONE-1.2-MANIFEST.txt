@@ -1,0 +1,31 @@
+The Zone Remastered — Milestone 1.2 candidate
+Host Stall Attribution
+Base commit: e3bdbbcf5d04672da2de4ce738669394bdb5b66c
+
+Payload:
+  APPLY-MILESTONE-1.2.command
+  Shared/ZoneGameHost.swift
+  Shared/ZoneAudioEngine.swift
+  Docs/MILESTONE-1.2.md
+  Docs/RE-host-stall-attribution.md
+  Tools/run-macos-perf.command
+  Tools/summarize-macos-perf.command
+  Tools/test-perf-summary.command
+  Tools/verify-milestone-1.2.command
+
+Apply-time documentation update:
+  README.md
+  Docs/ROADMAP.md
+
+Hard non-change contract:
+  - no ZoneCore file is shipped or modified;
+  - Shared/ZoneRenderer.swift must remain byte-identical to committed Milestone 1.1;
+  - normal non-diagnostic host behavior keeps the accepted 1.1 fast path;
+  - no timer, AI, physics, collision, projectile, wave, render-position, or audio-voice-policy change.
+
+Diagnostic additions:
+  - host stage attribution: input / core / drain / audio / HUD;
+  - live state correlation for slow frames;
+  - per-audio-trigger rewind/play split;
+  - automatic compact perf-log summary;
+  - synthetic regression test for the summary parser.

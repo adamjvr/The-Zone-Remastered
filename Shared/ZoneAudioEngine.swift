@@ -77,8 +77,26 @@ final class ZoneAudioEngine {
     }
 
     let player = bank.voices[voiceIndex]
-    player.currentTime = 0
-    player.play()
+    if diagnosticsEnabled {
+      let triggerStart = ProcessInfo.processInfo.systemUptime
+      player.currentTime = 0
+      let afterReset = ProcessInfo.processInfo.systemUptime
+      let started = player.play()
+      let triggerEnd = ProcessInfo.processInfo.systemUptime
+      let resetMS = (afterReset - triggerStart) * 1000
+      let playMS = (triggerEnd - afterReset) * 1000
+      let totalMS = (triggerEnd - triggerStart) * 1000
+      if totalMS > 2.0 {
+        print(String(
+          format: "[ZonePerf][audio] slow-trigger sid=%d event=%d voice=%d total=%.3f reset=%.3f play=%.3f started=%d",
+          sid, event.type, voiceIndex, totalMS, resetMS, playMS, started ? 1 : 0
+        ))
+      }
+    } else {
+      player.currentTime = 0
+      player.play()
+    }
+
     bank.nextVoice = (voiceIndex + 1) % bank.voices.count
     banks[sid] = bank
   }

@@ -28,12 +28,16 @@ LOG="build/perf-logs/zone-perf-${STAMP}.log"
 
 echo "Launching: $APP"
 echo "Diagnostics log: $LOG"
-echo "Play until you reproduce the hitch, then quit the app normally."
+echo "Play until you reproduce the hitch or clear a zone, then quit normally."
 echo
 
 ZONE_PERF_DIAGNOSTICS=1 "$BIN" 2>&1 | tee "$LOG"
 
 echo
 echo "Saved: $LOG"
-echo "Useful filter:"
-echo "  grep -E 'frame-gap|slow-step|slow-cpu-frame|texture-miss|voice-steal|sprite-preload' '$LOG'"
+echo
+./Tools/summarize-macos-perf.command "$LOG" || true
+
+echo
+echo "Useful raw filter:"
+echo "  grep -E 'host-detail|slow-trigger|frame-gap|slow-step|slow-cpu-frame|texture-miss|voice-steal|sprite-preload' '$LOG'"
