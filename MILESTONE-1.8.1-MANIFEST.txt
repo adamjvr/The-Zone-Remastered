@@ -1,0 +1,33 @@
+The Zone Remastered — Milestone 1.8.1
+Front-End Polish & Navigation
+
+Base commit:
+  7064192e475b39fd85cc45167637ad3b43d7bbcd
+  Milestone 1.8: add native title screen and front-end menus
+
+Payload:
+  APPLY-MILESTONE-1.8.1.command
+  Shared/ZoneContentView.swift
+  Docs/MILESTONE-1.8.1.md
+  Docs/FRONT-END-NAVIGATION.md
+  Tools/verify-milestone-1.8.1.command
+  MILESTONE-1.8.1-MANIFEST.txt
+  FILES.sha256
+
+Protected / intentionally unchanged:
+  ZoneCore/
+  Shared/ZoneGameHost.swift
+  Shared/ZoneRenderer.swift
+  Shared/ZoneMetalView.swift
+  Shared/ZoneAudioEngine.swift
+  Shared/ZoneInputRouter.swift
+  Shared/ZoneControllerManager.swift
+  Shared/ZoneTouchControls.swift
+  project.yml
+  TheZoneRemastered.xcodeproj/
+
+Acceptance hardware:
+  native macOS hardware
+  tethered physical iPad Pro through Xcode
+
+Simulator acceptance is intentionally not required.
