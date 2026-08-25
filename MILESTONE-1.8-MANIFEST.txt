@@ -1,0 +1,22 @@
+Milestone 1.8 — Native Front-End & Title Screen
+Base commit: a4b61fa63db0eddf953829d33b183b358da651e0
+
+Payload:
+  APPLY-MILESTONE-1.8.command
+  Docs/MILESTONE-1.8.md
+  Docs/NATIVE-FRONT-END.md
+  Shared/ZoneContentView.swift
+  macOS/TheZoneMacApp.swift
+  iPadOS/TheZonePadApp.swift
+  Tools/verify-milestone-1.8.command
+  MILESTONE-1.8-MANIFEST.txt
+  FILES.sha256
+
+Runtime preservation:
+  No ZoneCore changes.
+  No ZoneGameHost, ZoneMetalView, ZoneRenderer, ZoneAudioEngine,
+  ZoneInputRouter, ZoneControllerManager, or ZoneTouchControls changes.
+  No project.yml or checked-in Xcode project changes.
+
+Normal boot: shared native title screen.
+Developer bypass: ZONE_BOOT_DIRECT=1.

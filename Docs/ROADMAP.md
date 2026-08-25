@@ -80,11 +80,11 @@ Completed:
 - 640×480 canonical logical game canvas with Retina scaling;
 - native macOS build verified running on hardware.
 
-Remaining platform work includes the planned display-independent high-refresh timebase/presentation track, followed by product/UI polish and iPad device validation.
+The display-independent 720-Hz/native-refresh path is now live. Remaining platform work is product/UI polish, save/persistence integration, final iPad validation, and distribution work.
 
-## Phase 3 — Live Classic gameplay reconstruction — ~72%
+## Phase 3 — Live Classic gameplay reconstruction — ~78%
 
-**Current phase: Milestone 1.5.**
+**Current gameplay checkpoint: Milestone 1.7. Native product milestone 1.8 is active in parallel.**
 
 Milestone 1.3 completes the recovered Bee/Seeker timed hit-state behavior currently supported by the portable object model. Bee and Seeker now honor their 60-TickCount `+66/+92` coast gates; Seeker player collision applies the recovered 30-tick timestamp backdate; and Professional Wave 2 regression-tests a real other-Mother Bee donor. The earlier "Bee return" roadmap wording is corrected because PPC `0x154A8` contains no parent-return state.
 
@@ -173,13 +173,24 @@ Milestone 1.5 promotes continuous motion onto the already-proven 720-Hz master g
 
 This completes the first genuine high-refresh dynamics promotion. High-rate collision remains a separate Remastered-policy question because changing collision sampling frequency can change observable Classic outcomes.
 
+### Milestone 1.6 — Shared 80-slot object admission and base-impact parity
+
+The portable typed stores now obey the recovered global 80-object admission budget, and dedicated Mother/HQ ship-impact state/feedback consequences are regression-covered without altering the accepted high-rate presentation architecture.
+
+### Milestone 1.7 — Recovered lifecycle timing
+
+Death and wave progression now follow recovered explosion-finalization causality rather than provisional countdowns: the 20-frame ship-origin EXPL drives respawn, and the final Mother/HQ-origin EXPL drives objective-zero wave advancement. Projectile 90/120 lifetime guards remain explicitly temporary pending spatial/list parity.
+
+### Milestone 1.8 — Native Front-End & Title Screen
+
+The Apple products now boot through a shared native title shell instead of directly into gameplay. New Game, Controls, persistent presentation Preferences, Credits, macOS Quit, and Return-to-Title pause flow are live; the recovered 48-frame ship bank supplies the title emblem. `ZONE_BOOT_DIRECT=1` retains direct engineering boot, and ZoneCore/high-refresh/audio behavior is deliberately unchanged.
+
 Next priorities:
 
-1. Milestone 1.6 remaining Mother/HQ collision-state semantics and original shared-object-pool/list parity;
-2. Milestone 1.7 hostile-projectile lifetime, death/respawn, and wave timing fidelity on the new timebase;
-3. Milestone 1.8 wave-transition presentation and procedural waves 19+;
-4. Milestone 1.9 remaining `+128` Bee/Seeker spatial mode, collision/destruction/equipment special cases, and Classic RNG parity;
-5. Version 2.0 continuous complete Classic Mode.
+1. Milestone 1.9 `+128` spatial/list parity and recovered projectile retirement;
+2. Milestone 2.0 procedural Waves 19+ plus remaining collision/destruction/equipment behavior;
+3. native Continue/save-slot and Hall of Fame screens on the new front-end shell;
+4. Classic Mac RNG/deterministic compatibility and continuous Classic Mode closure.
 
 ## Phase 4 — Full Classic Mode — ~32%
 
@@ -198,7 +209,9 @@ Required for completion:
 - original sound-event mapping;
 - deterministic compatibility tests against original behavior.
 
-## Phase 5 — Native product/UI layer — ~35%
+## Phase 5 — Native product/UI layer — ~48%
+
+**Status: active in parallel with Classic gameplay reconstruction.**
 
 Completed foundations:
 
@@ -206,18 +219,22 @@ Completed foundations:
 - Metal game view;
 - controller abstraction;
 - macOS app branding/icon;
-- macOS pause menu with persistent keyboard remapping and Classic-default reset.
+- macOS pause menu with persistent keyboard remapping and Classic-default reset;
+- shared native title/menu shell on macOS and iPadOS;
+- functional New Game / Controls / Preferences / Credits flows;
+- persistent HUD/control-overlay presentation preferences;
+- Return-to-Title pause flow on macOS and iPadOS;
+- direct developer boot retained through `ZONE_BOOT_DIRECT=1`.
 
 Remaining:
 
-- title/menu experience;
-- preferences UI;
-- save-slot UI;
+- Continue/save-slot UI and ZoneCore save restoration;
 - Hall of Fame UI;
+- full recovered Classic preferences;
 - game-over/wave-transition presentation;
 - controller-remapping UI;
-- final iPad touch layout;
-- fullscreen/window presentation;
+- final iPad touch layout/polish;
+- fullscreen/window/display controls;
 - distribution/signing/notarization/App Store work.
 
 ## Phase 6 — Remaster layer — ~5%

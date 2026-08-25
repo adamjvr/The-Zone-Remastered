@@ -2,7 +2,7 @@
   <img src="Docs/images/TheZoneRemastered-Ship.png" alt="The Zone Remastered ship" width="720">
 </p>
 
-# The Zone Remastered — Engineering Milestone 1.5
+# The Zone Remastered — Engineering Milestone 1.8
 
 Native Apple remaster built from the reverse-engineered *TheZone* 1.5.1 game logic and assets.
 
@@ -11,6 +11,20 @@ Native Apple remaster built from the reverse-engineered *TheZone* 1.5.1 game log
 - **The Zone macOS** — native macOS application, verified building and running on macOS 15 Sequoia. Keyboard is canonical; controllers exposed by Apple's `GameController.framework` are supported as an alternate input path.
 - **The Zone iPadOS** — separate native iPadOS application target. Apple-supported game controllers are first-class; touch controls remain available when no controller is connected.
 - **ZoneCore** — deterministic portable C engine library, with no AppKit/UIKit/Metal dependencies.
+
+## Milestone 1.8 — Native Front-End & Title Screen
+
+Milestone 1.8 turns the Apple engineering harness into a product flow. Native macOS and iPadOS now boot into a shared SwiftUI title screen with an animated recovered 48-frame ship emblem, New Game, Controls, persistent presentation Preferences, Credits, and macOS Quit. New Game constructs a fresh gameplay host; both platforms can return from Pause to the title screen; and `ZONE_BOOT_DIRECT=1` preserves direct engineering boot. ZoneCore, the 720-Hz motion path, Classic decision/collision cadence, Metal renderer, and AVAudioEngine backend are unchanged.
+
+Detailed notes: [`Docs/MILESTONE-1.8.md`](Docs/MILESTONE-1.8.md) and [`Docs/NATIVE-FRONT-END.md`](Docs/NATIVE-FRONT-END.md).
+
+## Milestone 1.7 — Death, Explosion & Wave Timing Fidelity
+
+Milestone 1.7 removes provisional frame-count timing from death and fixed-wave completion. Ship respawn is driven by completion of the recovered 20-frame ship explosion; Mother/HQ objective count falls at transformed-explosion finalization; and the next fixed wave begins through the recovered objective-zero relationship instead of an invented 90-tick delay.
+
+## Milestone 1.6 — Shared 80-Slot Capacity & Base Impact Parity
+
+Milestone 1.6 enforces the recovered shared 80-object admission budget across ship, world bodies, projectiles and explosions, and restores additional Mother/HQ ship-impact consequences including Mother motion-state reset and impact feedback while keeping typed portable storage internally.
 
 ## Milestone 1.5 — Native High-Rate Dynamics Phase 1
 
