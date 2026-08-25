@@ -76,18 +76,6 @@ typedef struct ZoneDebugBodyState {
     int32_t frame;
 } ZoneDebugBodyState;
 
-typedef struct ZoneDebugProjectileState {
-    uint8_t active;
-    uint8_t hostile;
-    uint8_t spatial_active;
-    float x;
-    float y;
-    float vx;
-    float vy;
-    int32_t sprite;
-    int32_t source_slot;
-} ZoneDebugProjectileState;
-
 ZoneGame *zone_game_create(uint32_t seed);
 void zone_game_destroy(ZoneGame *game);
 void zone_game_reset(ZoneGame *game, uint32_t seed);
@@ -115,10 +103,6 @@ void zone_game_debug_set_world_state(ZoneGame *game, int32_t index,
 float zone_game_player_max_speed(const ZoneGame *game);
 int32_t zone_game_active_projectiles(const ZoneGame *game);
 int32_t zone_game_active_hostile_projectiles(const ZoneGame *game);
-int32_t zone_game_debug_find_nth_projectile(const ZoneGame *game, int32_t hostile, int32_t nth);
-ZoneDebugProjectileState zone_game_debug_projectile_state(const ZoneGame *game, int32_t index);
-void zone_game_debug_set_projectile_state(ZoneGame *game, int32_t index,
-                                          float x, float y, float vx, float vy);
 int32_t zone_game_debug_classic_object_capacity(void);
 int32_t zone_game_debug_classic_slots_used(const ZoneGame *game);
 int32_t zone_game_debug_world_flash(const ZoneGame *game, int32_t index);
