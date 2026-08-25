@@ -67,6 +67,92 @@ static void test_ammo_is_shot_capacity(void) {
     zone_game_destroy(g);
 }
 
+static void test_recovered_projectile_spatial_retirement(void) {
+    ZoneGame *g = zone_game_create(0x5A0719u);
+    assert(g);
+    park_wave1_except(g, -1, -1);
+    zone_game_debug_set_player_state(g, 320.0f, 240.0f, 0.0f, 0.0f);
+    zone_game_debug_set_heading(g, 0.0f);
+
+    ZoneInput fire = {0};
+    fire.fire = 1;
+    zone_game_step(g, fire);
+    assert(zone_game_active_projectiles(g) == 1);
+    const int32_t shot = zone_game_debug_find_nth_projectile(g, 0, 0);
+    assert(shot >= 0);
+
+    /* There is no recovered SHOT lifetime countdown. A spatially active
+       stationary shot must survive well beyond the old provisional 90 ticks. */
+    zone_game_debug_set_projectile_state(g, shot, 320.0f, 240.0f, 0.0f, 0.0f);
+    advance_ticks(g, 150);
+    ZoneDebugProjectileState state = zone_game_debug_projectile_state(g, shot);
+    assert(state.active == 1);
+    assert(state.spatial_active == 1);
+
+    /* PPC 0xF080 clears +128 and retires SHOT/FIRE after the sprite leaves
+       the live screen region. The portable projectile must not wrap around. */
+    zone_game_debug_set_projectile_state(g, shot, 900.0f, 240.0f, 0.0f, 0.0f);
+    zone_game_step(g, (ZoneInput){0});
+    assert(zone_game_active_projectiles(g) == 0);
+    state = zone_game_debug_projectile_state(g, shot);
+    assert(state.active == 0);
+    assert(state.spatial_active == 0);
+    zone_game_destroy(g);
+}
+
+static void test_native_projectile_retirement_on_classic_boundary(void) {
+    ZoneGame *g = zone_game_create(0x720019u);
+    assert(g);
+    park_wave1_except(g, -1, -1);
+    zone_game_debug_set_player_state(g, 320.0f, 240.0f, 0.0f, 0.0f);
+    zone_game_debug_set_heading(g, 0.0f);
+
+    ZoneInput fire = {0};
+    fire.fire = 1;
+    assert(zone_game_advance_master_ticks(g, fire, ZONE_MASTER_TICKS_PER_CLASSIC_STEP) == 1);
+    const int32_t shot = zone_game_debug_find_nth_projectile(g, 0, 0);
+    assert(shot >= 0);
+    zone_game_debug_set_projectile_state(g, shot, 900.0f, 240.0f, 0.0f, 0.0f);
+
+    /* High-rate motion does not multiply Classic spatial maintenance. +128
+       retirement remains a once-per-Classic-boundary observable rule. */
+    assert(zone_game_advance_master_ticks(
+        g, (ZoneInput){0}, ZONE_MASTER_TICKS_PER_CLASSIC_STEP - 1u) == 0);
+    assert(zone_game_debug_projectile_state(g, shot).active == 1);
+    assert(zone_game_advance_master_ticks(g, (ZoneInput){0}, 1u) == 1);
+    assert(zone_game_debug_projectile_state(g, shot).active == 0);
+    zone_game_destroy(g);
+}
+
+static void test_hostile_spatial_retirement_releases_source_cap(void) {
+    ZoneGame *g = zone_game_create(0xF1AE19u);
+    assert(g);
+    park_wave1_except(g, -1, -1);
+    zone_game_debug_set_player_state(g, 300.0f, 240.0f, 0.0f, 0.0f);
+    const int32_t raid = zone_game_debug_spawn_world(
+        g, TZ_TYPE_RAID, 360.0f, 240.0f, 0.0f, 0.0f);
+    assert(raid >= 0);
+
+    assert(zone_game_debug_enemy_fire(g, raid) == 1);
+    assert(zone_game_debug_enemy_fire(g, raid) == 1);
+    assert(zone_game_debug_enemy_fire(g, raid) == 1);
+    assert(zone_game_debug_enemy_fire(g, raid) == 0);
+    assert(zone_game_active_hostile_projectiles(g) == 3);
+
+    for (int n = 0; n < 3; ++n) {
+        const int32_t index = zone_game_debug_find_nth_projectile(g, 1, n);
+        assert(index >= 0);
+        zone_game_debug_set_projectile_state(g, index, 900.0f, 240.0f, 0.0f, 0.0f);
+    }
+    zone_game_step(g, (ZoneInput){0});
+    assert(zone_game_active_hostile_projectiles(g) == 0);
+
+    /* Off-region FIRE removal must release the shooter's recovered active-shot
+       accounting so the shared cap can admit another projectile. */
+    assert(zone_game_debug_enemy_fire(g, raid) == 1);
+    zone_game_destroy(g);
+}
+
 static void test_pickup_effects(void) {
     ZoneGame *g = zone_game_create(0xC011EC7u);
     assert(g);
@@ -1138,6 +1224,9 @@ int main(void) {
     test_rotor_orbit_attack_return_live();
     test_recovered_hostile_fire_constants();
     test_hostile_projectile_cap_and_player_hit();
+    test_recovered_projectile_spatial_retirement();
+    test_native_projectile_retirement_on_classic_boundary();
+    test_hostile_spatial_retirement_releases_source_cap();
     test_seeker_near_far_speed_switch();
     test_bee_timed_hit_state_coasts_then_retargets();
     test_seeker_player_collision_half_hit_state();
@@ -1226,6 +1315,9 @@ int main(void) {
     puts("Recovered Rotor orbit/attack/return + wake/link/fire semantics: PASS");
     puts("Recovered hostile-fire gates/cap/speed: PASS");
     puts("Hostile projectile player-hit/source cleanup: PASS");
+    puts("Recovered +128 projectile spatial retirement: PASS");
+    puts("Projectile lifetime countdown removal: PASS");
+    puts("720-Hz spatial retirement Classic-boundary parity: PASS");
     puts("Seeker 200-unit near/far speed switch: PASS");
     puts("Seeker collision 30-of-60 tick hit-state gate: PASS");
     puts("Fixed Wave 1 -> Wave 2 lifecycle: PASS");

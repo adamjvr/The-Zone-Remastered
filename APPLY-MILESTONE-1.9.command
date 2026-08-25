@@ -1,0 +1,106 @@
+#!/bin/zsh
+set -euo pipefail
+export PATH="/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+
+if [[ ! -d .git ]]; then
+  echo "ERROR: run this from the The-Zone-Remastered repository root."
+  exit 1
+fi
+
+expected_base="b998e13e0c328df935fb6d142f1179c0a036d9a2"
+actual_base="$(/usr/bin/git rev-parse HEAD)"
+if [[ "$actual_base" != "$expected_base" ]]; then
+  echo "ERROR: Milestone 1.9 requires committed Milestone 1.8.1 base $expected_base."
+  echo "Actual HEAD: $actual_base"
+  exit 1
+fi
+
+head_hash() {
+  /usr/bin/git show "HEAD:$1" 2>/dev/null | /usr/bin/shasum -a 256 | /usr/bin/awk '{print $1}'
+}
+require_head_hash() {
+  local file_path="$1" expected="$2" actual
+  actual="$(head_hash "$file_path" || true)"
+  if [[ "$actual" != "$expected" ]]; then
+    echo "ERROR: committed base does not match accepted Milestone 1.8.1."
+    echo "Mismatch: $file_path"
+    echo "Expected: $expected"
+    echo "Actual:   ${actual:-missing}"
+    exit 1
+  fi
+}
+
+# 1.8/1.8.1 were product-layer-only; accepted gameplay core still equals 1.7.
+require_head_hash ZoneCore/src/zone_core.c bf0f59e07e222cfb85889a4283e3b7ee78bc49d172049b1cc7d2ca02486d1128
+require_head_hash ZoneCore/include/zone_core.h dddbfa7e14d8eb24291a256390c4aaac377ce2c59a5c5e99422b229ec2f0fbf3
+require_head_hash ZoneCore/tests/test_zone_core.c 8a533c6eee728d8945e01ea217cc6b1e2d771bb1428e4bdc40aff42f56994e7a
+require_head_hash Shared/ZoneContentView.swift a06abc8507d220b4a06025fa6dab468f4e742c10a0679c0c937acd8b8abab18b
+
+if ! git show HEAD:README.md | grep -q 'Engineering Milestone 1.8.1'; then
+  echo "ERROR: commit the accepted Milestone 1.8.1 tree before applying 1.9."
+  exit 1
+fi
+
+protected=(
+  Shared
+  macOS
+  iPadOS
+  project.yml
+  TheZoneRemastered.xcodeproj
+)
+for protected_path in $protected; do
+  if ! git diff --quiet HEAD -- "$protected_path"; then
+    echo "ERROR: protected product/runtime path has local changes: $protected_path"
+    echo "Commit/stash/review those changes before applying 1.9."
+    exit 1
+  fi
+done
+
+/usr/bin/shasum -a 256 -c FILES.sha256
+
+python3 - <<'PY'
+from pathlib import Path
+
+p = Path('README.md')
+s = p.read_text()
+old_title = '# The Zone Remastered — Engineering Milestone 1.8.1'
+if old_title not in s:
+    raise SystemExit('ERROR: expected Milestone 1.8.1 README title not found')
+s = s.replace(old_title, '# The Zone Remastered — Engineering Milestone 1.9', 1)
+needle = '## Milestone 1.8.1 — Front-End Polish & Navigation\n'
+if needle not in s:
+    raise SystemExit('ERROR: expected Milestone 1.8.1 README section not found')
+section = '''## Milestone 1.9 — Recovered Projectile Spatial Retirement\n\nMilestone 1.9 removes the provisional player-shot 90-step and hostile-fire 120-step lifetimes. PPC `shot` (`0x11D44`) and `fire` (`0x11D6C`) are gated by object `+128` and contain no lifetime countdown; the spatial pass clears `+128` when a projectile sprite leaves the live screen rectangle, after which `fire` is finalized and `shot` is unlinked/freed. ZoneCore now keeps projectile coordinates unwrapped, translates the Classic top-left spatial bounds into center coordinates using the recovered sprite side, and retires projectiles on the existing 60-Hz Classic boundary while continuing real 720-Hz position integration. Hostile source-shot accounting is released on off-region removal.\n\nDetailed notes: [`Docs/MILESTONE-1.9.md`](Docs/MILESTONE-1.9.md) and [`Docs/RE-projectile-spatial.md`](Docs/RE-projectile-spatial.md).\n\n'''
+s = s.replace(needle, section + needle, 1)
+p.write_text(s)
+
+p = Path('Docs/ROADMAP.md')
+s = p.read_text()
+s = s.replace('## Phase 3 — Live Classic gameplay reconstruction — ~78%',
+              '## Phase 3 — Live Classic gameplay reconstruction — ~81%', 1)
+s = s.replace('**Current gameplay checkpoint: Milestone 1.7. Native product milestone 1.8 is active in parallel.**',
+              '**Current gameplay checkpoint: Milestone 1.9. Native product checkpoint 1.8.1 is accepted in parallel.**', 1)
+needle = '''### Milestone 1.8.1 — Front-End Polish & Navigation\n\nThe native shell now has explicit controller/keyboard selection semantics instead of depending on pointer/touch or incidental platform focus behavior. D-pad/left stick navigates, primary activates, secondary/Menu backs out, Preferences can be changed from a controller, and iPad Pause can be fully operated from a controller. Hardware-key arrows/Return/Escape share the same selection model. Safe-area layout, screen transitions, title selection treatment, and pause styling are polished while ZoneCore and all accepted gameplay/runtime paths remain frozen.\n\n'''
+if needle not in s:
+    raise SystemExit('ERROR: expected Milestone 1.8.1 roadmap section not found')
+insert = needle + '''### Milestone 1.9 — Recovered projectile spatial retirement\n\nThe portable projectile model now follows the recovered `+128` live-region lifecycle instead of provisional 90/120-step counters. `shot` and `fire` no longer wrap across the 640x480 boundary; they remain action-active while their sprite overlaps the Classic live rectangle and are retired after leaving it. Continuous projectile position still advances on the 720-Hz master grid, while the spatial-state consequence stays on the 60-Hz Classic boundary. Off-region hostile fire releases the shooter's active-shot cap. Exact shared `+138` traversal/slot-reuse ordering and non-projectile `+128/+129` semantics remain separate work.\n\n'''
+s = s.replace(needle, insert, 1)
+old = '''Next priorities:\n\n1. Milestone 1.9 `+128` spatial/list parity and recovered projectile retirement;\n2. Milestone 2.0 procedural Waves 19+ plus remaining collision/destruction/equipment behavior;\n3. native Continue/save-slot and Hall of Fame screens on the new front-end shell;\n4. Classic Mac RNG/deterministic compatibility and continuous Classic Mode closure.\n'''
+new = '''Next priorities:\n\n1. Milestone 2.0 procedural Waves 19+ plus remaining collision/destruction/equipment behavior;\n2. exact shared `+138` traversal/slot-reuse ordering and remaining non-projectile `+128/+129` spatial modes, including Bee/Seeker edges;\n3. native Continue/save-slot and Hall of Fame screens on the front-end shell;\n4. Classic Mac RNG/deterministic compatibility and continuous Classic Mode closure.\n'''
+if old not in s:
+    raise SystemExit('ERROR: expected pre-1.9 roadmap priorities not found')
+s = s.replace(old, new, 1)
+s = s.replace('- complete hostile projectile lifetime/collision special cases beyond the recovered base damage path;',
+              '- remaining hostile projectile collision special cases beyond recovered spatial retirement and base damage;', 1)
+p.write_text(s)
+PY
+
+chmod +x APPLY-MILESTONE-1.9.command Tools/verify-milestone-1.9.command
+./Tools/verify-milestone-1.9.command
+
+echo
+echo "Milestone 1.9 candidate applied and verified."
+echo "Build: ./Tools/build-macos.command"
+echo "Play:  ./Tools/run-macos-refresh.command native high"
+echo "iPad hardware: open the Xcode project, select The Zone iPadOS + tethered iPad Pro, then Cmd-R."
+echo "Do not commit 1.9 until projectile behavior and overall feel are play-tested."

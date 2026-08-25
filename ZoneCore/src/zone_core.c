@@ -25,13 +25,8 @@
 struct Projectile {
     uint8_t active;
     uint8_t hostile;
+    uint8_t spatial_active; /* PPC +128: live-region/action participation */
     float x, y, vx, vy;
-    /* TEMPORARY portable retirement guard. PPC `shot` 0x11D44 and `fire`
-       0x11D6C contain no lifetime countdown; original retirement is tied to
-       the spatial/list-maintenance path around 0xF080. Keep this isolated
-       until that world/spatial model is lifted rather than inventing a new
-       "exact" duration. */
-    int life;
     int sprite;
     int source_slot;
 };
@@ -158,6 +153,28 @@ static int active_hostile_projectile_count(const ZoneGame *g) {
         n += g->projectiles[i].active && g->projectiles[i].hostile;
     }
     return n;
+}
+
+/* PPC spatial maintenance around 0xED44..0xF168 keeps an object
+ * action-active while byte +128 is nonzero.  When the object's top-left
+ * screen coordinate leaves the strict live rectangle
+ *   x > -side && x < width, y > -side && y < height
+ * the pass clears +128.  `fire` is then finalized and `shot` is unlinked
+ * from the shared object list; neither action owns a lifetime counter.
+ *
+ * ZoneCore stores sprite centers, not Classic top-left coordinates, so the
+ * equivalent center bounds are [-side/2, width+side/2) and likewise for Y. */
+static float projectile_half_side(const struct Projectile *p) {
+    if (!p) return 8.0f;
+    const ZoneSpritePixels *sprite = zone_sprite_pixels(p->sprite);
+    return sprite ? (float)sprite->side * 0.5f : 8.0f;
+}
+
+static int projectile_outside_classic_live_region(const struct Projectile *p) {
+    if (!p || !p->active) return 0;
+    const float half = projectile_half_side(p);
+    return p->x <= -half || p->x >= (float)ZONE_LOGICAL_WIDTH + half ||
+           p->y <= -half || p->y >= (float)ZONE_LOGICAL_HEIGHT + half;
 }
 
 static float wrapf(float v, float max) {
@@ -850,6 +867,7 @@ static void release_projectile_source(ZoneGame *g, struct Projectile *p) {
 static void deactivate_projectile(ZoneGame *g, struct Projectile *p) {
     if (!p || !p->active) return;
     release_projectile_source(g, p);
+    p->spatial_active = 0;
     p->active = 0;
 }
 
@@ -870,13 +888,13 @@ static int spawn_hostile_projectile_with_cap(ZoneGame *g, int source_slot, int s
         if (p->active) continue;
         p->active = 1;
         p->hostile = 1;
+        p->spatial_active = 1;
         p->source_slot = source_slot;
         p->x = source->x;
         p->y = source->y;
         const float fire_speed = tz_enemy_projectile_speed();
         p->vx = (dx / mag) * fire_speed;
         p->vy = (dy / mag) * fire_speed;
-        p->life = 120; /* TEMP: spatial/list retirement lift still pending; see 0xF080 */
         p->sprite = ZONE_FIRE_SPRITE;
         ++source->hostile_shots;
         audio_push(g, ZONE_AUDIO_FIRE, p->x, p->y);
@@ -1250,12 +1268,15 @@ static int spawn_projectile(ZoneGame *g) {
             struct Projectile *p = &g->projectiles[i];
             p->active = 1;
             p->hostile = 0;
+            p->spatial_active = 1;
             p->source_slot = -1;
-            p->x = wrapf(g->player_x + (float)muzzle.x, ZONE_LOGICAL_WIDTH);
-            p->y = wrapf(g->player_y + (float)muzzle.y, ZONE_LOGICAL_HEIGHT);
+            /* Classic SHOT positions remain in screen space. Do not wrap a
+               muzzle that extends past an edge; +128 spatial retirement owns
+               the off-region lifecycle. */
+            p->x = g->player_x + (float)muzzle.x;
+            p->y = g->player_y + (float)muzzle.y;
             p->vx = dx * ZONE_PROJECTILE_SPEED;
             p->vy = dy * ZONE_PROJECTILE_SPEED;
-            p->life = 90; /* TEMP: no recovered SHOT countdown; spatial retirement pending */
             p->sprite = ZONE_SHOT_BASE;
             audio_push(g, ZONE_AUDIO_FIRE, p->x, p->y);
             return 1;
@@ -1370,9 +1391,13 @@ void zone_game_step(ZoneGame *g, ZoneInput in) {
     for (int i = 0; i < ZONE_PROJECTILE_CAP; ++i) {
         struct Projectile *p = &g->projectiles[i];
         if (!p->active) continue;
-        p->x = wrapf(p->x + p->vx * ZONE_MOTION_X_SCALE, ZONE_LOGICAL_WIDTH);
-        p->y = wrapf(p->y + p->vy * ZONE_MOTION_Y_SCALE, ZONE_LOGICAL_HEIGHT);
-        if (--p->life <= 0) {
+        p->x += p->vx * ZONE_MOTION_X_SCALE;
+        p->y += p->vy * ZONE_MOTION_Y_SCALE;
+
+        /* Recovered +128 spatial retirement replaces the provisional 90/120
+           countdowns. The Classic action runs while +128 is active; after
+           motion/clipping the spatial pass clears it and removes SHOT/FIRE. */
+        if (projectile_outside_classic_live_region(p)) {
             deactivate_projectile(g, p);
             continue;
         }
@@ -1514,7 +1539,7 @@ void zone_game_step(ZoneGame *g, ZoneInput in) {
  *
  *   phase 0:     recovered discrete decisions (input/AI/RNG/fire/timers)
  *   phases 0..11 continuous position integration at 1/12 displacement
- *   phase 11:    Classic collision + lifecycle boundary (projectile retirement still provisional)
+ *   phase 11:    Classic collision + recovered projectile spatial retirement boundary
  *
  * This produces genuine intermediate simulation positions for high-refresh
  * presentation without multiplying Classic AI/RNG/timer cadence. Exact-pixel
@@ -1609,12 +1634,8 @@ int32_t zone_game_advance_master_ticks(ZoneGame *g, ZoneInput in, uint32_t maste
         for (int i = 0; i < ZONE_PROJECTILE_CAP; ++i) {
             struct Projectile *p = &g->projectiles[i];
             if (!p->active) continue;
-            p->x = wrapf(
-                p->x + p->vx * ZONE_MOTION_X_SCALE * motion_fraction,
-                ZONE_LOGICAL_WIDTH);
-            p->y = wrapf(
-                p->y + p->vy * ZONE_MOTION_Y_SCALE * motion_fraction,
-                ZONE_LOGICAL_HEIGHT);
+            p->x += p->vx * ZONE_MOTION_X_SCALE * motion_fraction;
+            p->y += p->vy * ZONE_MOTION_Y_SCALE * motion_fraction;
         }
 
         if (classic_end) {
@@ -1626,7 +1647,7 @@ int32_t zone_game_advance_master_ticks(ZoneGame *g, ZoneInput in, uint32_t maste
             for (int i = 0; i < ZONE_PROJECTILE_CAP; ++i) {
                 struct Projectile *p = &g->projectiles[i];
                 if (!p->active) continue;
-                if (--p->life <= 0) {
+                if (projectile_outside_classic_live_region(p)) {
                     deactivate_projectile(g, p);
                     continue;
                 }
@@ -1888,6 +1909,38 @@ float zone_game_player_max_speed(const ZoneGame *g) {
 
 int32_t zone_game_active_projectiles(const ZoneGame *g) {
     return g ? active_projectile_count(g) : 0;
+}
+
+int32_t zone_game_debug_find_nth_projectile(const ZoneGame *g, int32_t hostile, int32_t nth) {
+    if (!g || nth < 0) return -1;
+    int seen = 0;
+    for (int i = 0; i < ZONE_PROJECTILE_CAP; ++i) {
+        const struct Projectile *p = &g->projectiles[i];
+        if (!p->active || (!!p->hostile) != (!!hostile)) continue;
+        if (seen++ == nth) return i;
+    }
+    return -1;
+}
+
+ZoneDebugProjectileState zone_game_debug_projectile_state(const ZoneGame *g, int32_t index) {
+    ZoneDebugProjectileState out = {0};
+    if (!g || index < 0 || index >= ZONE_PROJECTILE_CAP) return out;
+    const struct Projectile *p = &g->projectiles[index];
+    out.active = p->active;
+    out.hostile = p->hostile;
+    out.spatial_active = p->spatial_active;
+    out.x = p->x; out.y = p->y; out.vx = p->vx; out.vy = p->vy;
+    out.sprite = p->sprite;
+    out.source_slot = p->source_slot;
+    return out;
+}
+
+void zone_game_debug_set_projectile_state(ZoneGame *g, int32_t index,
+                                          float x, float y, float vx, float vy) {
+    if (!g || index < 0 || index >= ZONE_PROJECTILE_CAP) return;
+    struct Projectile *p = &g->projectiles[index];
+    if (!p->active) return;
+    p->x = x; p->y = y; p->vx = vx; p->vy = vy;
 }
 
 int32_t zone_game_debug_classic_object_capacity(void) {
