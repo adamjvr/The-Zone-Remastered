@@ -120,7 +120,7 @@ static void test_big_rock_fragmentation(void) {
     zone_game_destroy(g);
 }
 
-static void test_player_death_respawn_skeleton(void) {
+static void test_player_death_respawn_on_ship_explosion_completion(void) {
     ZoneGame *g = zone_game_create(0xD1E5u);
     assert(g);
     park_wave1_except(g, 0, -1);
@@ -128,13 +128,77 @@ static void test_player_death_respawn_skeleton(void) {
     zone_game_debug_set_player_state(g, 300.0f, 240.0f, 10.0f, 0.0f);
     zone_game_debug_set_world_state(g, 0, 300.0f, 240.0f, 5.0f, 0.0f, 0);
 
+    /* The impact step transforms the ship into its 20-frame EXPL surrogate.
+       That creation pass leaves action_age=0. Ship EXPL advances every other
+       Classic action, reaching frame_count at action_age=39. */
     zone_game_step(g, (ZoneInput){0});
     assert(zone_game_player_alive(g) == 0);
     assert(zone_game_hud(g).shields == 0);
+    assert(zone_game_debug_respawn_pending(g) == 1);
+    assert(zone_game_debug_active_explosions(g) >= 1);
+    assert(zone_game_debug_explosion_previous_type(g, 0) == TZ_TYPE_SHIP);
+    assert(zone_game_debug_explosion_frame(g, 0) == 0);
 
-    advance_ticks(g, 120);
+    advance_ticks(g, 38);
+    assert(zone_game_player_alive(g) == 0);
+    assert(zone_game_debug_explosion_frame(g, 0) == 19);
+
+    zone_game_step(g, (ZoneInput){0});
     assert(zone_game_player_alive(g) == 1);
     assert(zone_game_hud(g).shields == 100);
+    assert(zone_game_debug_respawn_pending(g) == 0);
+    assert(nearly(zone_game_player_x(g), 320.0f));
+    assert(nearly(zone_game_player_y(g), 240.0f));
+    zone_game_destroy(g);
+}
+
+static void test_player_death_respawn_master_path(void) {
+    ZoneGame *g = zone_game_create(0xD1E5720u);
+    assert(g);
+    park_wave1_except(g, 0, -1);
+    zone_game_debug_set_progression(g, 1, 2, 25.0f, 1);
+    zone_game_debug_set_player_state(g, 300.0f, 240.0f, 10.0f, 0.0f);
+    zone_game_debug_set_world_state(g, 0, 300.0f, 240.0f, 5.0f, 0.0f, 0);
+
+    assert(zone_game_advance_master_ticks(
+        g, (ZoneInput){0}, ZONE_MASTER_TICKS_PER_CLASSIC_STEP) == 1);
+    assert(zone_game_player_alive(g) == 0);
+    assert(zone_game_debug_respawn_pending(g) == 1);
+
+    assert(zone_game_advance_master_ticks(
+        g, (ZoneInput){0}, 38u * ZONE_MASTER_TICKS_PER_CLASSIC_STEP) == 38);
+    assert(zone_game_player_alive(g) == 0);
+
+    assert(zone_game_advance_master_ticks(
+        g, (ZoneInput){0}, ZONE_MASTER_TICKS_PER_CLASSIC_STEP) == 1);
+    assert(zone_game_player_alive(g) == 1);
+    assert(nearly(zone_game_player_x(g), 320.0f));
+    assert(nearly(zone_game_player_y(g), 240.0f));
+    zone_game_destroy(g);
+}
+
+static void test_recovered_explosion_cadence(void) {
+    ZoneGame *g = zone_game_create(0x12080u);
+    assert(g);
+    park_wave1_except(g, -1, -1);
+    const int32_t asteroid = zone_game_debug_spawn_world(
+        g, TZ_TYPE_ASTE, 400.0f, 300.0f, 0.0f, 0.0f);
+    assert(asteroid >= 0);
+    zone_game_debug_destroy_world(g, asteroid);
+    assert(zone_game_debug_active_explosions(g) == 1);
+    assert(zone_game_debug_explosion_previous_type(g, 0) == TZ_TYPE_ASTE);
+    assert(zone_game_debug_explosion_frame(g, 0) == 0);
+
+    /* External debug destruction occurs between game steps: first step is the
+       creation pass (-1 -> 0), then ordinary EXPL advances every action. */
+    zone_game_step(g, (ZoneInput){0});
+    assert(zone_game_debug_explosion_frame(g, 0) == 0);
+    zone_game_step(g, (ZoneInput){0});
+    assert(zone_game_debug_explosion_frame(g, 0) == 1);
+    advance_ticks(g, 9);
+    assert(zone_game_debug_active_explosions(g) == 1);
+    zone_game_step(g, (ZoneInput){0});
+    assert(zone_game_debug_active_explosions(g) == 0);
     zone_game_destroy(g);
 }
 
@@ -441,11 +505,25 @@ static void test_fixed_wave_lifecycle_1_to_2(void) {
     assert(g);
     const int32_t moth = zone_game_debug_find_nth_type(g, TZ_TYPE_MOTH, 0);
     assert(moth >= 0);
-    zone_game_debug_destroy_world(g, moth);
-    assert(zone_game_hud(g).bases == 0);
-    assert(zone_game_hud(g).enemies == 0);
 
-    advance_ticks(g, 91);
+    /* Keep a real linked defender alive to prove enemy count is not the gate.
+       The original objective counter is Mother/HQ count only. */
+    assert(zone_game_debug_trigger_mother_defense(g, moth, 15000, 0) >= 1);
+    assert(zone_game_hud(g).enemies > 0);
+
+    zone_game_debug_destroy_world(g, moth);
+    /* Mother remains represented by its EXPL until 0x12370 finalization, so
+       the objective count does not drop at the damage/transform instant. */
+    assert(zone_game_hud(g).wave == 1);
+    assert(zone_game_hud(g).bases == 1);
+    assert(zone_game_debug_explosion_previous_type(g, 0) == TZ_TYPE_MOTH);
+
+    /* MOTH EXPL: creation pass plus 21 action ticks to reach frame 11. */
+    advance_ticks(g, 21);
+    assert(zone_game_hud(g).wave == 1);
+    assert(zone_game_hud(g).bases == 1);
+
+    zone_game_step(g, (ZoneInput){0});
     const ZoneHUDState hud = zone_game_hud(g);
     assert(hud.wave == 2);
     assert(hud.bases == 2);
@@ -1078,7 +1156,9 @@ int main(void) {
     test_pickup_effects();
     test_asteroid_payload();
     test_big_rock_fragmentation();
-    test_player_death_respawn_skeleton();
+    test_player_death_respawn_on_ship_explosion_completion();
+    test_player_death_respawn_master_path();
+    test_recovered_explosion_cadence();
 
     ZoneGame *g = zone_game_create(0x12345678u);
     assert(g);
@@ -1134,7 +1214,8 @@ int main(void) {
     puts("Ammunition concurrent-shot capacity: PASS");
     puts("Asteroid VELO/AMMO payload consequence: PASS");
     puts("Big Rock 2..4 fragment consequence: PASS");
-    puts("Player death/respawn lifecycle skeleton: PASS");
+    puts("Recovered ship-explosion-driven respawn timing: PASS");
+    puts("Recovered EXPL previous-type animation cadence: PASS");
     puts("Recovered Mother Base defender gate/cap/batch: PASS");
     puts("Professional Wave-1 Mother subtype / no-self-Bee request: PASS");
     puts("Two-base Bee donor/requester linkage + counter repair: PASS");

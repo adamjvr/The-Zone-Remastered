@@ -11,7 +11,7 @@
 #define ZONE_SHOT_BASE 148
 #define ZONE_FIRE_SPRITE 152
 #define ZONE_PROJECTILE_CAP 48
-#define ZONE_EXPLOSION_CAP 12
+#define ZONE_EXPLOSION_CAP 80
 #define ZONE_WORLD_CAP 64
 #define ZONE_CLASSIC_OBJECT_CAP 80
 
@@ -21,13 +21,16 @@
 #define ZONE_MOTION_Y_SCALE 0.25f
 #define ZONE_PROJECTILE_SPEED 15.0f
 #define ZONE_FIRE_COOLDOWN_TICKS 8
-#define ZONE_RESPAWN_TICKS 120
-#define ZONE_WAVE_CLEAR_TICKS 90
 
 struct Projectile {
     uint8_t active;
     uint8_t hostile;
     float x, y, vx, vy;
+    /* TEMPORARY portable retirement guard. PPC `shot` 0x11D44 and `fire`
+       0x11D6C contain no lifetime countdown; original retirement is tied to
+       the spatial/list-maintenance path around 0xF080. Keep this isolated
+       until that world/spatial model is lifted rather than inventing a new
+       "exact" duration. */
     int life;
     int sprite;
     int source_slot;
@@ -35,8 +38,9 @@ struct Projectile {
 
 struct Explosion {
     uint8_t active;
+    uint32_t previous_type; /* PPC +4 retained by EXPL transform/action handler */
     float x, y;
-    int age;
+    int action_age;         /* -1 on transform; 0 after creation step; then Classic action ticks */
     int sprite_base;
     int frame_count;
     int side;
@@ -98,8 +102,7 @@ struct ZoneGame {
     float player_max_speed;
     int equipment_upgrade_a;
     int equipment_upgrade_b;
-    int respawn_ticks;
-    int wave_clear_ticks;
+    uint8_t respawn_pending; /* recovered ship-explosion completion drives reset */
     uint8_t professional;
     uint8_t player_alive;
     uint8_t paused;
@@ -360,10 +363,10 @@ static void populate_fixed_wave(ZoneGame *g, unsigned wave) {
     memset(g->world, 0, sizeof(g->world));
     memset(g->world_contact_bits, 0, sizeof(g->world_contact_bits));
     memset(g->projectiles, 0, sizeof(g->projectiles));
+    memset(g->explosions, 0, sizeof(g->explosions));
     g->bases_remaining = 0;
     g->enemies_remaining = 0;
     g->bee_limit = 0;
-    g->wave_clear_ticks = 0;
 
     const TzWavePreset *preset = tz_wave_preset(g->professional != 0, wave);
     if (!preset) return;
@@ -873,7 +876,7 @@ static int spawn_hostile_projectile_with_cap(ZoneGame *g, int source_slot, int s
         const float fire_speed = tz_enemy_projectile_speed();
         p->vx = (dx / mag) * fire_speed;
         p->vy = (dy / mag) * fire_speed;
-        p->life = 120; /* lifetime still isolated pending the action-routine lift */
+        p->life = 120; /* TEMP: spatial/list retirement lift still pending; see 0xF080 */
         p->sprite = ZONE_FIRE_SPRITE;
         ++source->hostile_shots;
         audio_push(g, ZONE_AUDIO_FIRE, p->x, p->y);
@@ -921,19 +924,26 @@ static void update_hq_fire(ZoneGame *g, int slot) {
     (void)spawn_hostile_projectile_with_cap(g, slot, 0);
 }
 
-static void spawn_explosion_bank(ZoneGame *g, float x, float y,
-                                 int base, int frames, int side) {
-    if (!classic_object_slot_available(g)) return;
+static int spawn_explosion_bank(ZoneGame *g, float x, float y,
+                                int base, int frames, int side,
+                                uint32_t previous_type) {
+    if (!classic_object_slot_available(g)) return 0;
     for (int i = 0; i < ZONE_EXPLOSION_CAP; ++i) {
         if (!g->explosions[i].active) {
-            g->explosions[i] = (struct Explosion){1, x, y, 0, base, frames, side};
+            g->explosions[i] = (struct Explosion){
+                .active = 1, .previous_type = previous_type,
+                .x = x, .y = y, .action_age = -1,
+                .sprite_base = base, .frame_count = frames, .side = side,
+            };
             audio_push(g, ZONE_AUDIO_EXPLOSION, x, y);
-            return;
+            return 1;
         }
     }
+    return 0;
 }
 
-static void spawn_explosion(ZoneGame *g, float x, float y, int destroyed_side) {
+static void spawn_explosion(ZoneGame *g, float x, float y,
+                            int destroyed_side, uint32_t previous_type) {
     int base = 1500, frames = 20, side = 32;
     switch (destroyed_side) {
         case 16: base = 700;   frames = 11; side = 16; break;
@@ -942,13 +952,13 @@ static void spawn_explosion(ZoneGame *g, float x, float y, int destroyed_side) {
         case 48: base = 20000; frames = 11; side = 48; break;
         default: break;
     }
-    spawn_explosion_bank(g, x, y, base, frames, side);
+    (void)spawn_explosion_bank(g, x, y, base, frames, side, previous_type);
 }
 
 static void spawn_ship_explosion(ZoneGame *g, float x, float y) {
-    /* The ship/mine special case in 0x107B4 uses the 20-frame 1500 bank,
-       not the generic 32-pixel explosion bank. */
-    spawn_explosion_bank(g, x, y, 1500, 20, 32);
+    /* 0x107B4 transforms ship into the 20-frame EXPL bank and retains
+       previous_type='ship' for the 0x12080 animation cadence. */
+    (void)spawn_explosion_bank(g, x, y, 1500, 20, 32, TZ_TYPE_SHIP);
 }
 
 static uint32_t select_asteroid_payload(ZoneGame *g) {
@@ -1071,14 +1081,17 @@ static void destroy_world_object(ZoneGame *g, struct WorldObject *o) {
     const TzKillAward *award = tz_kill_award_for_type(destroyed_type);
     if (award) g->score += award->score;
     if (destroyed_type == TZ_TYPE_MOTH || destroyed_type == TZ_TYPE_BASE) {
-        if (g->bases_remaining > 0) --g->bases_remaining;
+        /* PPC keeps the Mother/HQ objective count until its transformed EXPL
+           finishes and 0x12370/0x124B0 finally removes the object. */
     } else if (is_enemy_type(destroyed_type)) {
         if (g->enemies_remaining > 0) --g->enemies_remaining;
     }
 
-    spawn_explosion(g, x, y, side);
+    /* Original destruction transforms this object into EXPL. Free the typed
+       world surrogate from the shared count before admitting EXPL. */
     o->active = 0;
     clear_world_contacts_for_slot(g, slot);
+    spawn_explosion(g, x, y, side, destroyed_type);
 }
 
 static int apply_player_shot_to_world(ZoneGame *g, int slot, int damage) {
@@ -1118,26 +1131,82 @@ static void begin_player_death(ZoneGame *g) {
     if (!g->player_alive) return;
     g->player_alive = 0;
     g->shields = 0;
-    g->respawn_ticks = ZONE_RESPAWN_TICKS;
+    g->respawn_pending = 1;
     g->player_vx = 0.0f;
     g->player_vy = 0.0f;
     spawn_ship_explosion(g, g->player_x, g->player_y);
 }
 
 static void respawn_player(ZoneGame *g) {
-    /* 0x1663C is only partially lifted. The reset semantics (ship object is
-       reconfigured and shields restored) are known; exact historical spawn
-       placement/timing remains a compatibility item. Keep those two values
-       centralized here until the final lift replaces them. */
-    g->player_x = ZONE_LOGICAL_WIDTH * 0.33f;
+    /* 0x1663C rebuilds at half the playfield extents minus the 16-pixel
+       top-left offset; ZoneCore stores centers, yielding exactly 320,240. */
+    g->player_x = ZONE_LOGICAL_WIDTH * 0.5f;
     g->player_y = ZONE_LOGICAL_HEIGHT * 0.5f;
     g->player_vx = 0.0f;
     g->player_vy = 0.0f;
     g->heading = 0.0f;
     g->shields = 100;
     g->player_alive = 1;
-    g->respawn_ticks = 0;
+    g->respawn_pending = 0;
     for (int i = 0; i < ZONE_WORLD_CAP; ++i) g->world[i].player_contact = 0;
+}
+
+/* PPC EXPL action 0x12080 advances ship/Mother/HQ explosions on odd
+ * animation-counter values only; other recovered origins advance every pass. */
+static int explosion_frame_interval(uint32_t previous_type) {
+    return (previous_type == TZ_TYPE_SHIP ||
+            previous_type == TZ_TYPE_MOTH ||
+            previous_type == TZ_TYPE_BASE) ? 2 : 1;
+}
+
+static int explosion_frame_at_age(const struct Explosion *e) {
+    if (!e || e->action_age <= 0) return 0;
+    return explosion_frame_interval(e->previous_type) == 2
+        ? (e->action_age + 1) / 2
+        : e->action_age;
+}
+
+static void advance_to_next_fixed_wave_if_complete(ZoneGame *g) {
+    /* 0x124B0 sets global 11978 exactly when the Mother/HQ objective count
+       reaches zero; the main loop then immediately invokes 0x10648. */
+    if (g->bases_remaining != 0) return;
+    if (g->wave < 18) {
+        ++g->wave;
+        populate_fixed_wave(g, (unsigned)g->wave);
+    }
+    /* Procedural wave 19+ remains a separate lift. */
+}
+
+static void update_explosions_and_lifecycle(ZoneGame *g) {
+    int ship_explosion_finished = 0;
+    int base_objective_finished = 0;
+
+    for (int i = 0; i < ZONE_EXPLOSION_CAP; ++i) {
+        struct Explosion *e = &g->explosions[i];
+        if (!e->active) continue;
+        ++e->action_age;
+        if (e->action_age <= 0) continue;
+
+        if (explosion_frame_at_age(e) >= e->frame_count) {
+            const uint32_t previous_type = e->previous_type;
+            e->active = 0;
+
+            if (previous_type == TZ_TYPE_SHIP) {
+                ship_explosion_finished = 1;
+            } else if (previous_type == TZ_TYPE_MOTH ||
+                       previous_type == TZ_TYPE_BASE) {
+                if (g->bases_remaining > 0) --g->bases_remaining;
+                if (g->bases_remaining == 0) base_objective_finished = 1;
+            }
+        }
+    }
+
+    /* 0x12370 sets reset at ship-EXPL completion; main loop consumes via 0x1663C. */
+    if (ship_explosion_finished && g->respawn_pending) respawn_player(g);
+
+    /* Wave completion is caused by final removal of the last Mother/HQ EXPL,
+       not by the damage event that first transformed the base. */
+    if (base_objective_finished) advance_to_next_fixed_wave_if_complete(g);
 }
 
 static void collect_pickup(ZoneGame *g, struct WorldObject *o) {
@@ -1186,7 +1255,7 @@ static int spawn_projectile(ZoneGame *g) {
             p->y = wrapf(g->player_y + (float)muzzle.y, ZONE_LOGICAL_HEIGHT);
             p->vx = dx * ZONE_PROJECTILE_SPEED;
             p->vy = dy * ZONE_PROJECTILE_SPEED;
-            p->life = 90;
+            p->life = 90; /* TEMP: no recovered SHOT countdown; spatial retirement pending */
             p->sprite = ZONE_SHOT_BASE;
             audio_push(g, ZONE_AUDIO_FIRE, p->x, p->y);
             return 1;
@@ -1261,8 +1330,7 @@ void zone_game_step(ZoneGame *g, ZoneInput in) {
         }
         g->fire_latch = in.fire;
     } else {
-        if (g->respawn_ticks > 0) --g->respawn_ticks;
-        if (g->respawn_ticks == 0) respawn_player(g);
+        /* Respawn is driven by ship-explosion completion. */
     }
 
     for (int i = 0; i < ZONE_WORLD_CAP; ++i) {
@@ -1433,30 +1501,8 @@ void zone_game_step(ZoneGame *g, ZoneInput in) {
         }
     }
 
-    /* Recovered fixed-wave population is now connected to a live lifecycle.
-       Asteroids and pickups are not part of the clear condition: the tracked
-       base/enemy counters are the combat objectives. */
-    if (g->bases_remaining == 0 && g->enemies_remaining == 0) {
-        if (g->wave < 18) {
-            if (g->wave_clear_ticks == 0) g->wave_clear_ticks = ZONE_WAVE_CLEAR_TICKS;
-            else if (--g->wave_clear_ticks == 0) {
-                ++g->wave;
-                populate_fixed_wave(g, (unsigned)g->wave);
-            }
-        } else {
-            /* Procedural wave 19+ is intentionally still a roadmap item. */
-            g->wave_clear_ticks = -1;
-        }
-    } else {
-        g->wave_clear_ticks = 0;
-    }
+    update_explosions_and_lifecycle(g);
 
-    for (int i = 0; i < ZONE_EXPLOSION_CAP; ++i) {
-        struct Explosion *e = &g->explosions[i];
-        if (!e->active) continue;
-        ++e->age;
-        if ((e->age / 2) >= e->frame_count) e->active = 0;
-    }
 }
 
 
@@ -1468,7 +1514,7 @@ void zone_game_step(ZoneGame *g, ZoneInput in) {
  *
  *   phase 0:     recovered discrete decisions (input/AI/RNG/fire/timers)
  *   phases 0..11 continuous position integration at 1/12 displacement
- *   phase 11:    recovered Classic collision/lifetime/wave/explosion boundary
+ *   phase 11:    Classic collision + lifecycle boundary (projectile retirement still provisional)
  *
  * This produces genuine intermediate simulation positions for high-refresh
  * presentation without multiplying Classic AI/RNG/timer cadence. Exact-pixel
@@ -1515,8 +1561,7 @@ int32_t zone_game_advance_master_ticks(ZoneGame *g, ZoneInput in, uint32_t maste
                 }
                 g->fire_latch = in.fire;
             } else {
-                if (g->respawn_ticks > 0) --g->respawn_ticks;
-                if (g->respawn_ticks == 0) respawn_player(g);
+                /* Respawn is driven by ship-explosion completion. */
             }
 
             for (int i = 0; i < ZONE_WORLD_CAP; ++i) {
@@ -1689,26 +1734,7 @@ int32_t zone_game_advance_master_ticks(ZoneGame *g, ZoneInput in, uint32_t maste
                 }
             }
 
-            if (g->bases_remaining == 0 && g->enemies_remaining == 0) {
-                if (g->wave < 18) {
-                    if (g->wave_clear_ticks == 0) g->wave_clear_ticks = ZONE_WAVE_CLEAR_TICKS;
-                    else if (--g->wave_clear_ticks == 0) {
-                        ++g->wave;
-                        populate_fixed_wave(g, (unsigned)g->wave);
-                    }
-                } else {
-                    g->wave_clear_ticks = -1;
-                }
-            } else {
-                g->wave_clear_ticks = 0;
-            }
-
-            for (int i = 0; i < ZONE_EXPLOSION_CAP; ++i) {
-                struct Explosion *e = &g->explosions[i];
-                if (!e->active) continue;
-                ++e->age;
-                if ((e->age / 2) >= e->frame_count) e->active = 0;
-            }
+            update_explosions_and_lifecycle(g);
 
             ++completed_classic_steps;
         }
@@ -1754,7 +1780,7 @@ ZoneRenderItem zone_game_render_item_at(const ZoneGame *g, int32_t index) {
         const struct Explosion *e = &g->explosions[i];
         if (!e->active) continue;
         if (index == n++) {
-            int frame = e->age / 2;
+            int frame = explosion_frame_at_age(e);
             if (frame >= e->frame_count) frame = e->frame_count - 1;
             return (ZoneRenderItem){e->sprite_base + frame, e->x, e->y, (float)e->side, 1, 0};
         }
@@ -1879,6 +1905,38 @@ int32_t zone_game_debug_world_flash(const ZoneGame *g, int32_t index) {
 
 int32_t zone_game_debug_player_flash(const ZoneGame *g) {
     return g && g->player_hit_flash_ticks ? 1 : 0;
+}
+
+
+int32_t zone_game_debug_active_explosions(const ZoneGame *g) {
+    if (!g) return 0;
+    int n = 0;
+    for (int i = 0; i < ZONE_EXPLOSION_CAP; ++i) n += !!g->explosions[i].active;
+    return n;
+}
+
+static const struct Explosion *debug_nth_explosion(const ZoneGame *g, int32_t nth) {
+    if (!g || nth < 0) return NULL;
+    int32_t n = 0;
+    for (int i = 0; i < ZONE_EXPLOSION_CAP; ++i) {
+        if (!g->explosions[i].active) continue;
+        if (n++ == nth) return &g->explosions[i];
+    }
+    return NULL;
+}
+
+int32_t zone_game_debug_explosion_frame(const ZoneGame *g, int32_t nth) {
+    const struct Explosion *e = debug_nth_explosion(g, nth);
+    return e ? explosion_frame_at_age(e) : -1;
+}
+
+uint32_t zone_game_debug_explosion_previous_type(const ZoneGame *g, int32_t nth) {
+    const struct Explosion *e = debug_nth_explosion(g, nth);
+    return e ? e->previous_type : 0u;
+}
+
+int32_t zone_game_debug_respawn_pending(const ZoneGame *g) {
+    return g && g->respawn_pending ? 1 : 0;
 }
 
 uint8_t zone_game_player_alive(const ZoneGame *g) {

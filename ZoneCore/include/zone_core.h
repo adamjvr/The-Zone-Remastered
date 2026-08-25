@@ -107,6 +107,10 @@ int32_t zone_game_debug_classic_object_capacity(void);
 int32_t zone_game_debug_classic_slots_used(const ZoneGame *game);
 int32_t zone_game_debug_world_flash(const ZoneGame *game, int32_t index);
 int32_t zone_game_debug_player_flash(const ZoneGame *game);
+int32_t zone_game_debug_active_explosions(const ZoneGame *game);
+int32_t zone_game_debug_explosion_frame(const ZoneGame *game, int32_t nth);
+uint32_t zone_game_debug_explosion_previous_type(const ZoneGame *game, int32_t nth);
+int32_t zone_game_debug_respawn_pending(const ZoneGame *game);
 uint8_t zone_game_player_alive(const ZoneGame *game);
 void zone_game_debug_set_progression(ZoneGame *game, int32_t shields, int32_t ammo,
                                      float maximum_speed, int32_t wave);

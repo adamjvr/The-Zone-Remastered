@@ -1,0 +1,40 @@
+The Zone Remastered — Milestone 1.7
+Death, Explosion & Wave Timing Fidelity
+
+Base requirement:
+  Accepted and committed Milestone 1.6 tree.
+  The installer validates the committed 1.6 ZoneCore source/header/tests by SHA-256,
+  so the local 1.6 commit SHA itself may vary.
+
+Payload:
+  APPLY-MILESTONE-1.7.command
+  FILES.sha256
+  MILESTONE-1.7-MANIFEST.txt
+  Docs/MILESTONE-1.7.md
+  Docs/RE-timing-lifecycle.md
+  Tools/verify-milestone-1.7.command
+  ZoneCore/include/zone_core.h
+  ZoneCore/src/zone_core.c
+  ZoneCore/tests/test_zone_core.c
+
+Promoted behavior:
+  - EXPL retains previous_type and uses recovered 0x12080 cadence.
+  - ship/moth/base explosions advance every other Classic action pass.
+  - ordinary recovered explosion origins advance every action pass.
+  - player reset is driven by ship-explosion completion, not 120 ticks.
+  - respawn center is recovered 320,240 in ZoneCore center coordinates.
+  - Mother/HQ objective count decrements when its EXPL finalizes.
+  - last Mother/HQ finalization immediately triggers next fixed wave.
+  - surviving defenders do not gate wave completion.
+  - provisional 90-tick wave-clear countdown is removed.
+  - projectile 90/120 retirement counters are explicitly documented as temporary;
+    recovered SHOT/FIRE actions have no countdown and await +128 spatial/list parity.
+
+Unchanged intentionally:
+  - 720-Hz continuous dynamics architecture
+  - Classic AI/RNG/fire/timer decision cadence
+  - Classic-boundary collision sampling
+  - AVAudioEngine backend
+  - Metal presentation
+  - projectile retirement behavior (pending spatial/list lift)
+  - procedural Waves 19+
