@@ -52,7 +52,7 @@ Major remaining lifts:
 - remaining Mother Base/HQ collision/state edge semantics and original shared-object-pool behavior;
 - unresolved Bee/Seeker `+128` spatial-mode behavior around the now-live chase/hit-state handlers;
 - remaining Seeker edge states around the now-live 200-unit speed switch;
-- complete hostile projectile lifetime/collision special cases beyond the recovered base damage path;
+- remaining hostile projectile collision special cases beyond recovered spatial retirement and base damage;
 - full special-case collision matrix;
 - exact Big Rock child geometry;
 - exact `bonu` / `equi` / `gadg` effects;
@@ -82,9 +82,9 @@ Completed:
 
 The display-independent 720-Hz/native-refresh path is now live. Remaining platform work is product/UI polish, save/persistence integration, final iPad validation, and distribution work.
 
-## Phase 3 — Live Classic gameplay reconstruction — ~78%
+## Phase 3 — Live Classic gameplay reconstruction — ~81%
 
-**Current gameplay checkpoint: Milestone 1.7. Native product milestone 1.8 is active in parallel.**
+**Current gameplay checkpoint: Milestone 1.9. Native product checkpoint 1.8.1 is accepted in parallel.**
 
 Milestone 1.3 completes the recovered Bee/Seeker timed hit-state behavior currently supported by the portable object model. Bee and Seeker now honor their 60-TickCount `+66/+92` coast gates; Seeker player collision applies the recovered 30-tick timestamp backdate; and Professional Wave 2 regression-tests a real other-Mother Bee donor. The earlier "Bee return" roadmap wording is corrected because PPC `0x154A8` contains no parent-return state.
 
@@ -185,11 +185,19 @@ Death and wave progression now follow recovered explosion-finalization causality
 
 The Apple products now boot through a shared native title shell instead of directly into gameplay. New Game, Controls, persistent presentation Preferences, Credits, macOS Quit, and Return-to-Title pause flow are live; the recovered 48-frame ship bank supplies the title emblem. `ZONE_BOOT_DIRECT=1` retains direct engineering boot, and ZoneCore/high-refresh/audio behavior is deliberately unchanged.
 
+### Milestone 1.8.1 — Front-End Polish & Navigation
+
+The native shell now has explicit controller/keyboard selection semantics instead of depending on pointer/touch or incidental platform focus behavior. D-pad/left stick navigates, primary activates, secondary/Menu backs out, Preferences can be changed from a controller, and iPad Pause can be fully operated from a controller. Hardware-key arrows/Return/Escape share the same selection model. Safe-area layout, screen transitions, title selection treatment, and pause styling are polished while ZoneCore and all accepted gameplay/runtime paths remain frozen.
+
+### Milestone 1.9 — Recovered projectile spatial retirement
+
+The portable projectile model now follows the recovered `+128` live-region lifecycle instead of provisional 90/120-step counters. `shot` and `fire` no longer wrap across the 640x480 boundary; they remain action-active while their sprite overlaps the Classic live rectangle and are retired after leaving it. Continuous projectile position still advances on the 720-Hz master grid, while the spatial-state consequence stays on the 60-Hz Classic boundary. Off-region hostile fire releases the shooter's active-shot cap. Exact shared `+138` traversal/slot-reuse ordering and non-projectile `+128/+129` semantics remain separate work.
+
 Next priorities:
 
-1. Milestone 1.9 `+128` spatial/list parity and recovered projectile retirement;
-2. Milestone 2.0 procedural Waves 19+ plus remaining collision/destruction/equipment behavior;
-3. native Continue/save-slot and Hall of Fame screens on the new front-end shell;
+1. Milestone 2.0 procedural Waves 19+ plus remaining collision/destruction/equipment behavior;
+2. exact shared `+138` traversal/slot-reuse ordering and remaining non-projectile `+128/+129` spatial modes, including Bee/Seeker edges;
+3. native Continue/save-slot and Hall of Fame screens on the front-end shell;
 4. Classic Mac RNG/deterministic compatibility and continuous Classic Mode closure.
 
 ## Phase 4 — Full Classic Mode — ~32%

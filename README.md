@@ -2,7 +2,7 @@
   <img src="Docs/images/TheZoneRemastered-Ship.png" alt="The Zone Remastered ship" width="720">
 </p>
 
-# The Zone Remastered — Engineering Milestone 1.8
+# The Zone Remastered — Engineering Milestone 1.9
 
 Native Apple remaster built from the reverse-engineered *TheZone* 1.5.1 game logic and assets.
 
@@ -11,6 +11,16 @@ Native Apple remaster built from the reverse-engineered *TheZone* 1.5.1 game log
 - **The Zone macOS** — native macOS application, verified building and running on macOS 15 Sequoia. Keyboard is canonical; controllers exposed by Apple's `GameController.framework` are supported as an alternate input path.
 - **The Zone iPadOS** — separate native iPadOS application target. Apple-supported game controllers are first-class; touch controls remain available when no controller is connected.
 - **ZoneCore** — deterministic portable C engine library, with no AppKit/UIKit/Metal dependencies.
+
+## Milestone 1.9 — Recovered Projectile Spatial Retirement
+
+Milestone 1.9 removes the provisional player-shot 90-step and hostile-fire 120-step lifetimes. PPC `shot` (`0x11D44`) and `fire` (`0x11D6C`) are gated by object `+128` and contain no lifetime countdown; the spatial pass clears `+128` when a projectile sprite leaves the live screen rectangle, after which `fire` is finalized and `shot` is unlinked/freed. ZoneCore now keeps projectile coordinates unwrapped, translates the Classic top-left spatial bounds into center coordinates using the recovered sprite side, and retires projectiles on the existing 60-Hz Classic boundary while continuing real 720-Hz position integration. Hostile source-shot accounting is released on off-region removal.
+
+Detailed notes: [`Docs/MILESTONE-1.9.md`](Docs/MILESTONE-1.9.md) and [`Docs/RE-projectile-spatial.md`](Docs/RE-projectile-spatial.md).
+
+## Milestone 1.8.1 — Front-End Polish & Navigation
+
+Milestone 1.8.1 polishes the accepted native front end with explicit keyboard/controller selection semantics, controller-operable Preferences and iPad Pause flow, safer held-button edge handling, improved selected-state presentation, transitions, and iPad safe-area layout. It remains a product-layer checkpoint and leaves ZoneCore/gameplay timing unchanged.
 
 ## Milestone 1.8 — Native Front-End & Title Screen
 

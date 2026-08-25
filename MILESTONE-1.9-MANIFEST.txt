@@ -1,0 +1,54 @@
+The Zone Remastered — Milestone 1.9
+Recovered Projectile Spatial Retirement
+
+Base requirement:
+- committed tree must match the accepted Milestone 1.8.1 content hashes; an exact commit SHA is intentionally not required
+- ZoneCore must still match the accepted Milestone 1.7/1.8/1.8.1 gameplay tree
+
+Payload:
+- APPLY-MILESTONE-1.9.command
+- FILES.sha256
+- Docs/MILESTONE-1.9.md
+- Docs/RE-projectile-spatial.md
+- Tools/verify-milestone-1.9.command
+- ZoneCore/include/zone_core.h
+- ZoneCore/src/zone_core.c
+- ZoneCore/tests/test_zone_core.c
+
+Promoted behavior:
+- remove provisional player-shot 90-step lifetime
+- remove provisional hostile-fire 120-step lifetime
+- stop projectile world wrapping
+- recover projectile +128 spatial-active surrogate
+- retire SHOT/FIRE when their sprite clears the Classic live rectangle
+- preserve spatial retirement on the 60-Hz Classic boundary under 720-Hz motion
+- release hostile source-shot accounting on off-region FIRE retirement
+
+Explicitly unchanged:
+- native front-end/title/menu and 1.8.1 navigation
+- ZoneGameHost/timebase architecture
+- Metal renderer
+- AVAudioEngine backend
+- controller/touch/keyboard routing
+- world-body wrapping
+- AI/RNG/fire decision cadence
+- exact-pixel collision sampling cadence
+
+Still pending:
+- exact +138 list traversal/slot reuse ordering across every object family
+- non-projectile +128/+129 spatial semantics
+- remaining Bee/Seeker spatial modes
+- procedural Waves 19+
+- remaining collision/destruction/equipment special cases
+- Classic Mac Random() sequence parity
+
+Installer/recovery hardening:
+- avoids zsh special parameter `path`, which is tied to PATH
+- uses absolute macOS /usr/bin paths for git/shasum/awk preflight tools
+- verifies the accepted 1.8.1 checkpoint by content hashes + roadmap marker, not an exact commit SHA
+- accounts for the accepted 1.8.1 checkpoint retaining the README title "Engineering Milestone 1.8"
+- promotes README directly from the real accepted 1.8/1.8.1 tree to Milestone 1.9 and adds the missing 1.8.1 summary
+
+Base bookkeeping note:
+  Accepted 1.8.1 committed its UI/docs payload but left README/ROADMAP markers at 1.8.
+  Milestone 1.9 repairs those bookkeeping markers during apply.
