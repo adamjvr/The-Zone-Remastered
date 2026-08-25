@@ -103,6 +103,10 @@ void zone_game_debug_set_world_state(ZoneGame *game, int32_t index,
 float zone_game_player_max_speed(const ZoneGame *game);
 int32_t zone_game_active_projectiles(const ZoneGame *game);
 int32_t zone_game_active_hostile_projectiles(const ZoneGame *game);
+int32_t zone_game_debug_classic_object_capacity(void);
+int32_t zone_game_debug_classic_slots_used(const ZoneGame *game);
+int32_t zone_game_debug_world_flash(const ZoneGame *game, int32_t index);
+int32_t zone_game_debug_player_flash(const ZoneGame *game);
 uint8_t zone_game_player_alive(const ZoneGame *game);
 void zone_game_debug_set_progression(ZoneGame *game, int32_t shields, int32_t ammo,
                                      float maximum_speed, int32_t wave);
@@ -119,6 +123,7 @@ int32_t zone_game_debug_trigger_mother_defense(ZoneGame *game, int32_t index,
                                                int16_t gate_word, uint16_t batch_word);
 int32_t zone_game_debug_request_bee(ZoneGame *game, int32_t requester_index);
 int32_t zone_game_debug_enemy_fire(ZoneGame *game, int32_t source_index);
+int32_t zone_game_debug_spawn_hostile_unbounded(ZoneGame *game, int32_t source_index);
 int32_t zone_game_debug_world_damage(const ZoneGame *game, int32_t index);
 int32_t zone_game_debug_apply_player_shot(ZoneGame *game, int32_t index);
 int32_t zone_game_debug_trigger_hq_defense(ZoneGame *game, int32_t index);

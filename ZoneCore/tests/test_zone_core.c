@@ -896,6 +896,73 @@ static void test_player_mother_base_collision(void) {
     zone_game_destroy(g);
 }
 
+static void test_mother_base_collision_state_feedback(void) {
+    ZoneGame *classic = zone_game_create(0x174E8u);
+    ZoneGame *native = zone_game_create(0x174E9u);
+    assert(classic && native);
+
+    ZoneGame *games[2] = {classic, native};
+    for (int k = 0; k < 2; ++k) {
+        ZoneGame *g = games[k];
+        park_wave1_except(g, 3, -1);
+        zone_game_debug_set_player_state(g, 300.0f, 240.0f, 0.0f, 0.0f);
+        zone_game_debug_set_world_state(g, 3, 300.0f, 240.0f, 0.0f, 0.0f, 0);
+        zone_game_debug_set_mother_state(g, 3, 1, 2);
+        assert(zone_game_debug_mother_motion_state(g, 3) == 2);
+    }
+
+    zone_game_step(classic, (ZoneInput){0});
+    assert(zone_game_advance_master_ticks(native, (ZoneInput){0}, 12) == 1);
+
+    assert(zone_game_debug_mother_motion_state(classic, 3) == 0);
+    assert(zone_game_debug_mother_motion_state(native, 3) == 0);
+    assert(zone_game_debug_world_flash(classic, 3) == 1);
+    assert(zone_game_debug_world_flash(native, 3) == 1);
+    assert(zone_game_debug_player_flash(classic) == 1);
+    assert(zone_game_debug_player_flash(native) == 1);
+
+    const ZoneRenderItem cship = zone_game_render_item_at(classic, 0);
+    const ZoneRenderItem nship = zone_game_render_item_at(native, 0);
+    assert(cship.flash == 1.0f && nship.flash == 1.0f);
+
+    zone_game_destroy(classic);
+    zone_game_destroy(native);
+}
+
+static void test_shared_classic_object_capacity(void) {
+    ZoneGame *g = zone_game_create(0x80C0FFEEu);
+    assert(g);
+    assert(zone_game_debug_classic_object_capacity() == 80);
+    assert(zone_game_debug_classic_slots_used(g) == 5); /* ship + Wave-1 4 objects */
+
+    /* Fill the typed world store. The original allocator is shared, so these
+       bodies consume the same global 80-slot budget as shots/explosions. */
+    int serial = 0;
+    while (zone_game_world_object_count(g) < 64) {
+        const int32_t slot = zone_game_debug_spawn_world(
+            g, TZ_TYPE_OSCI, 500.0f + (float)(serial % 10), 400.0f, 0.0f, 0.0f);
+        assert(slot >= 0);
+        ++serial;
+    }
+    assert(zone_game_debug_classic_slots_used(g) == 65);
+
+    const int32_t moth = zone_game_debug_find_nth_type(g, TZ_TYPE_MOTH, 0);
+    assert(moth >= 0);
+    for (int i = 0; i < 15; ++i) {
+        assert(zone_game_debug_spawn_hostile_unbounded(g, moth) == 1);
+    }
+    assert(zone_game_debug_classic_slots_used(g) == 80);
+    assert(zone_game_active_hostile_projectiles(g) == 15);
+
+    /* Both typed stores still have theoretical room, but Classic's shared
+       allocator is exhausted, so every object-producing path must refuse. */
+    assert(zone_game_debug_spawn_hostile_unbounded(g, moth) == 0);
+    assert(zone_game_debug_spawn_world(g, TZ_TYPE_OSCI, 200.0f, 200.0f, 0.0f, 0.0f) == -1);
+    assert(zone_game_debug_classic_slots_used(g) == 80);
+
+    zone_game_destroy(g);
+}
+
 static void test_world_body_exchange_latch(void) {
     ZoneGame *g = zone_game_create(0xB00CEu);
     assert(g);
@@ -1050,6 +1117,8 @@ int main(void) {
 
     test_player_asteroid_collision();
     test_player_mother_base_collision();
+    test_mother_base_collision_state_feedback();
+    test_shared_classic_object_capacity();
     test_world_body_exchange_latch();
 
     puts("720-Hz master motion substeps + Classic-boundary parity: PASS");
@@ -1058,6 +1127,8 @@ int main(void) {
     puts("Recovered player-impact damage tables: PASS");
     puts("Player/object momentum exchange + contact latch: PASS");
     puts("Mother Base collision transfer: PASS");
+    puts("Mother/HQ collision state reset + one-draw feedback: PASS");
+    puts("Recovered shared 80-object admission capacity: PASS");
     puts("Wave-1 world/body collision exchange: PASS");
     puts("Recovered initial max speed / pickup progression: PASS");
     puts("Ammunition concurrent-shot capacity: PASS");

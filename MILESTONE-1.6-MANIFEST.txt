@@ -1,0 +1,25 @@
+The Zone Remastered — Milestone 1.6
+Shared 80-Slot Capacity & Base Impact Parity
+
+Required committed base:
+  accepted Milestone 1.5 tree
+  (validated by committed file hashes; SHA may differ by local commit)
+
+Files delivered:
+  APPLY-MILESTONE-1.6.command
+  FILES.sha256
+  MILESTONE-1.6-MANIFEST.txt
+  Docs/MILESTONE-1.6.md
+  Docs/RE-object-pool-base-collision.md
+  Tools/verify-milestone-1.6.command
+  ZoneCore/include/zone_core.h
+  ZoneCore/src/zone_core.c
+  ZoneCore/tests/test_zone_core.c
+
+Behavior contract:
+  - global Classic object admission capacity = 80 across implemented categories.
+  - typed arrays remain internal storage; linked-list/slot-order parity is not claimed.
+  - Mother/HQ ship impact resets +86-equivalent motion state to 0.
+  - Mother/HQ and player receive one-draw collision feedback surrogates.
+  - Classic and 720-Hz master paths share the same collision consequence.
+  - 720-Hz timing, 60-Hz Classic collision cadence, renderer and audio remain unchanged.

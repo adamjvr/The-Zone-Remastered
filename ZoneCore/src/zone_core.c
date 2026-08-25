@@ -13,6 +13,7 @@
 #define ZONE_PROJECTILE_CAP 48
 #define ZONE_EXPLOSION_CAP 12
 #define ZONE_WORLD_CAP 64
+#define ZONE_CLASSIC_OBJECT_CAP 80
 
 /* Recovered gameplay constants currently promoted into the playable core. */
 #define ZONE_CLASSIC_TURN_DEG 4.5f
@@ -82,6 +83,7 @@ struct ZoneGame {
     int fire_cooldown;
     uint8_t fire_latch;
     uint8_t pause_latch;
+    uint8_t player_hit_flash_ticks; /* one-draw surrogate for ship +133 collision feedback */
     uint8_t master_phase; /* 0..11: native high-rate motion phase */
 
     struct WorldObject world[ZONE_WORLD_CAP];
@@ -283,6 +285,23 @@ static int destruction_threshold(const ZoneGame *g, uint32_t type) {
     return tz_damage_threshold_for_type(type, &t);
 }
 
+/* PPC startup 0x19E0..0x1A34 allocates exactly 80 pointers and 80 cleared
+ * 150-byte object records. Ship, world bodies, projectiles and explosion
+ * objects therefore compete for one Classic capacity. ZoneCore retains typed
+ * arrays internally but now applies that shared admission limit. */
+static int classic_object_slots_used(const ZoneGame *g) {
+    if (!g) return 0;
+    int n = g->player_alive ? 1 : 0;
+    for (int i = 0; i < ZONE_WORLD_CAP; ++i) n += !!g->world[i].active;
+    for (int i = 0; i < ZONE_PROJECTILE_CAP; ++i) n += !!g->projectiles[i].active;
+    for (int i = 0; i < ZONE_EXPLOSION_CAP; ++i) n += !!g->explosions[i].active;
+    return n;
+}
+
+static int classic_object_slot_available(const ZoneGame *g) {
+    return classic_object_slots_used(g) < ZONE_CLASSIC_OBJECT_CAP;
+}
+
 static int allocate_world_slot(ZoneGame *g) {
     for (int i = 0; i < ZONE_WORLD_CAP; ++i) {
         if (!g->world[i].active) return i;
@@ -291,6 +310,7 @@ static int allocate_world_slot(ZoneGame *g) {
 }
 
 static struct WorldObject *spawn_world_object(ZoneGame *g, uint32_t type) {
+    if (!classic_object_slot_available(g)) return NULL;
     const int slot = allocate_world_slot(g);
     if (slot < 0) return NULL;
 
@@ -832,6 +852,7 @@ static void deactivate_projectile(ZoneGame *g, struct Projectile *p) {
 
 static int spawn_hostile_projectile_with_cap(ZoneGame *g, int source_slot, int source_cap) {
     if (!g->player_alive || source_slot < 0 || source_slot >= ZONE_WORLD_CAP) return 0;
+    if (!classic_object_slot_available(g)) return 0;
     struct WorldObject *source = &g->world[source_slot];
     if (!source->active) return 0;
     if (source_cap > 0 && source->hostile_shots >= source_cap) return 0;
@@ -902,6 +923,7 @@ static void update_hq_fire(ZoneGame *g, int slot) {
 
 static void spawn_explosion_bank(ZoneGame *g, float x, float y,
                                  int base, int frames, int side) {
+    if (!classic_object_slot_available(g)) return;
     for (int i = 0; i < ZONE_EXPLOSION_CAP; ++i) {
         if (!g->explosions[i].active) {
             g->explosions[i] = (struct Explosion){1, x, y, 0, base, frames, side};
@@ -1148,6 +1170,7 @@ static void collect_pickup(ZoneGame *g, struct WorldObject *o) {
 static int spawn_projectile(ZoneGame *g) {
     ensure_trig_tables();
     if (!g->player_alive || active_projectile_count(g) >= g->ammo) return 0;
+    if (!classic_object_slot_available(g)) return 0;
     for (int i = 0; i < ZONE_PROJECTILE_CAP; ++i) {
         if (!g->projectiles[i].active) {
             const int frame = current_ship_frame(g);
@@ -1208,6 +1231,7 @@ void zone_game_step(ZoneGame *g, ZoneInput in) {
     if (g->paused) return;
 
     ++g->behavior_tick;
+    if (g->player_hit_flash_ticks > 0) --g->player_hit_flash_ticks;
 
     if (g->player_alive) {
         const float turn = in.turn < -0.25f ? -1.0f : (in.turn > 0.25f ? 1.0f : 0.0f);
@@ -1350,6 +1374,12 @@ void zone_game_step(ZoneGame *g, ZoneInput in) {
         int damage = 0;
         if (o->type == TZ_TYPE_MOTH || o->type == TZ_TYPE_BASE) {
             damage = tz_player_base_impact_damage(speed_before, g->shield_strength);
+            /* PPC 0x174E8: base +133=1, ship +133=4, +130=1 and +86=0,
+               then exchange continuous velocity vectors. player_contact is
+               ZoneCore's +130 latch; white flash remains a palette surrogate. */
+            o->hit_flash_ticks = 1;
+            g->player_hit_flash_ticks = 1;
+            o->mother_motion_state = 0;
             tz_swap_screen_velocity(&g->player_vx, &g->player_vy, &o->vx, &o->vy);
         } else {
             tz_swap_screen_velocity(&g->player_vx, &g->player_vy, &o->vx, &o->vy);
@@ -1462,6 +1492,7 @@ int32_t zone_game_advance_master_ticks(ZoneGame *g, ZoneInput in, uint32_t maste
 
         if (classic_begin) {
             ++g->behavior_tick;
+            if (g->player_hit_flash_ticks > 0) --g->player_hit_flash_ticks;
 
             if (g->player_alive) {
                 const float turn = in.turn < -0.25f ? -1.0f : (in.turn > 0.25f ? 1.0f : 0.0f);
@@ -1609,6 +1640,12 @@ int32_t zone_game_advance_master_ticks(ZoneGame *g, ZoneInput in, uint32_t maste
                 int damage = 0;
                 if (o->type == TZ_TYPE_MOTH || o->type == TZ_TYPE_BASE) {
                     damage = tz_player_base_impact_damage(speed_before, g->shield_strength);
+                    /* PPC 0x174E8: base +133=1, ship +133=4, +130=1 and +86=0,
+                       then exchange continuous velocity vectors. player_contact is
+                       ZoneCore's +130 latch; white flash remains a palette surrogate. */
+                    o->hit_flash_ticks = 1;
+                    g->player_hit_flash_ticks = 1;
+                    o->mother_motion_state = 0;
                     tz_swap_screen_velocity(&g->player_vx, &g->player_vy, &o->vx, &o->vy);
                 } else {
                     tz_swap_screen_velocity(&g->player_vx, &g->player_vy, &o->vx, &o->vy);
@@ -1697,7 +1734,8 @@ ZoneRenderItem zone_game_render_item_at(const ZoneGame *g, int32_t index) {
     int n = 0;
 
     if (g->player_alive && index == n++) {
-        return (ZoneRenderItem){current_ship_sprite(g), g->player_x, g->player_y, 32, 1, 0};
+        return (ZoneRenderItem){current_ship_sprite(g), g->player_x, g->player_y, 32, 1,
+                                g->player_hit_flash_ticks ? 1.0f : 0.0f};
     }
     for (int i = 0; i < ZONE_WORLD_CAP; ++i) {
         const struct WorldObject *o = &g->world[i];
@@ -1824,6 +1862,23 @@ float zone_game_player_max_speed(const ZoneGame *g) {
 
 int32_t zone_game_active_projectiles(const ZoneGame *g) {
     return g ? active_projectile_count(g) : 0;
+}
+
+int32_t zone_game_debug_classic_object_capacity(void) {
+    return ZONE_CLASSIC_OBJECT_CAP;
+}
+
+int32_t zone_game_debug_classic_slots_used(const ZoneGame *g) {
+    return classic_object_slots_used(g);
+}
+
+int32_t zone_game_debug_world_flash(const ZoneGame *g, int32_t index) {
+    if (!g || index < 0 || index >= ZONE_WORLD_CAP || !g->world[index].active) return 0;
+    return g->world[index].hit_flash_ticks ? 1 : 0;
+}
+
+int32_t zone_game_debug_player_flash(const ZoneGame *g) {
+    return g && g->player_hit_flash_ticks ? 1 : 0;
 }
 
 uint8_t zone_game_player_alive(const ZoneGame *g) {
@@ -1972,4 +2027,9 @@ int32_t zone_game_active_hostile_projectiles(const ZoneGame *g) {
 int32_t zone_game_debug_enemy_fire(ZoneGame *g, int32_t source_index) {
     if (!g) return 0;
     return spawn_hostile_projectile(g, (int)source_index);
+}
+
+int32_t zone_game_debug_spawn_hostile_unbounded(ZoneGame *g, int32_t source_index) {
+    if (!g) return 0;
+    return spawn_hostile_projectile_with_cap(g, (int)source_index, 0);
 }
