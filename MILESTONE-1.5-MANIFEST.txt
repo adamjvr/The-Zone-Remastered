@@ -1,0 +1,28 @@
+The Zone Remastered — Milestone 1.5
+Native High-Rate Dynamics Phase 1
+
+Base commit:
+  e0c94d0ac9a50b3006302a47711be2eda7019531
+
+Files delivered:
+  APPLY-MILESTONE-1.5.command
+  FILES.sha256
+  MILESTONE-1.5-MANIFEST.txt
+  Docs/MILESTONE-1.5.md
+  Docs/RE-high-rate-dynamics.md
+  Shared/ZoneGameHost.swift
+  Tools/run-macos-refresh.command
+  Tools/run-macos-perf.command
+  Tools/summarize-macos-perf.command
+  Tools/zonecore-benchmark.c
+  Tools/verify-milestone-1.5.command
+  ZoneCore/include/zone_core.h
+  ZoneCore/src/zone_core.c
+  ZoneCore/tests/test_zone_core.c
+
+Behavior contract:
+  - zone_game_step() remains the unchanged Classic one-step reference.
+  - native motion integrates at 720 Hz through zone_game_advance_master_ticks().
+  - Classic decisions and collision remain 60 Hz.
+  - no interpolation or extrapolation.
+  - accepted Milestone 1.4 renderer/audio/Recovered sources are untouched.

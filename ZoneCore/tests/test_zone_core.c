@@ -772,6 +772,46 @@ static void test_rotor_orbit_attack_return_live(void) {
     zone_game_destroy(g);
 }
 
+
+static void test_native_master_long_run_classic_parity(void) {
+    ZoneGame *classic = zone_game_create(0x515151u);
+    ZoneGame *native = zone_game_create(0x515151u);
+    assert(classic && native);
+    park_wave1_except(classic, -1, -1);
+    park_wave1_except(native, -1, -1);
+    zone_game_debug_set_player_state(classic, 300.0f, 240.0f, 0.0f, 0.0f);
+    zone_game_debug_set_player_state(native, 300.0f, 240.0f, 0.0f, 0.0f);
+
+    for (int tick = 0; tick < 180; ++tick) {
+        ZoneInput in = {0};
+        in.turn = (tick % 24) < 8 ? 1.0f : ((tick % 24) < 16 ? 0.0f : -1.0f);
+        in.thrust = (tick % 5) != 0 ? 1.0f : 0.0f;
+        in.fire = (tick % 29) == 0 ? 1 : 0;
+
+        zone_game_step(classic, in);
+        assert(zone_game_advance_master_ticks(
+            native, in, ZONE_MASTER_TICKS_PER_CLASSIC_STEP) == 1);
+
+        const ZoneDebugBodyState a = zone_game_debug_player_state(classic);
+        const ZoneDebugBodyState b = zone_game_debug_player_state(native);
+        assert(fabsf(a.x - b.x) < 0.02f);
+        assert(fabsf(a.y - b.y) < 0.02f);
+        assert(fabsf(a.vx - b.vx) < 0.0001f);
+        assert(fabsf(a.vy - b.vy) < 0.0001f);
+        assert(a.frame == b.frame);
+        assert(zone_game_debug_behavior_tick(classic) == zone_game_debug_behavior_tick(native));
+        assert(zone_game_active_projectiles(classic) == zone_game_active_projectiles(native));
+
+        const ZoneHUDState ah = zone_game_hud(classic);
+        const ZoneHUDState bh = zone_game_hud(native);
+        assert(ah.score == bh.score && ah.shields == bh.shields && ah.wave == bh.wave);
+        assert(ah.bases == bh.bases && ah.enemies == bh.enemies);
+    }
+
+    zone_game_destroy(classic);
+    zone_game_destroy(native);
+}
+
 static void test_muzzle_table(void) {
     const TzMuzzleOffset f0 = tz_ship_muzzle_offset_frame48(0);
     const TzMuzzleOffset f12 = tz_ship_muzzle_offset_frame48(12);
@@ -878,7 +918,71 @@ static void test_world_body_exchange_latch(void) {
     zone_game_destroy(g);
 }
 
+
+static void test_native_master_motion_substeps(void) {
+    ZoneGame *g = zone_game_create(0x7205u);
+    assert(g);
+    park_wave1_except(g, -1, -1);
+    zone_game_debug_set_player_state(g, 300.0f, 240.0f, 12.0f, 0.0f);
+
+    const float x0 = zone_game_player_x(g);
+    assert(zone_game_advance_master_ticks(g, (ZoneInput){0}, 3) == 0);
+    assert(zone_game_debug_master_phase(g) == 3u);
+    assert(fabsf(zone_game_player_x(g) - (x0 + 0.975f)) < 0.0005f);
+
+    assert(zone_game_advance_master_ticks(g, (ZoneInput){0}, 9) == 1);
+    assert(zone_game_debug_master_phase(g) == 0u);
+    assert(fabsf(zone_game_player_x(g) - (x0 + 3.9f)) < 0.001f);
+    assert(zone_game_debug_behavior_tick(g) == 1u);
+    zone_game_destroy(g);
+}
+
+static void test_native_master_matches_classic_boundary(void) {
+    ZoneGame *classic = zone_game_create(0xA11CEu);
+    ZoneGame *native = zone_game_create(0xA11CEu);
+    assert(classic && native);
+    park_wave1_except(classic, -1, -1);
+    park_wave1_except(native, -1, -1);
+    zone_game_debug_set_heading(classic, 0.0f);
+    zone_game_debug_set_heading(native, 0.0f);
+    zone_game_debug_set_player_state(classic, 300.0f, 240.0f, 12.0f, 0.0f);
+    zone_game_debug_set_player_state(native, 300.0f, 240.0f, 12.0f, 0.0f);
+
+    ZoneInput fire = {0};
+    fire.fire = 1;
+    zone_game_step(classic, fire);
+    assert(zone_game_advance_master_ticks(
+        native, fire, ZONE_MASTER_TICKS_PER_CLASSIC_STEP) == 1);
+
+    const ZoneDebugBodyState cship = zone_game_debug_player_state(classic);
+    const ZoneDebugBodyState nship = zone_game_debug_player_state(native);
+    assert(fabsf(cship.x - nship.x) < 0.001f);
+    assert(fabsf(cship.y - nship.y) < 0.001f);
+    assert(fabsf(cship.vx - nship.vx) < 0.0001f);
+    assert(fabsf(cship.vy - nship.vy) < 0.0001f);
+    assert(cship.frame == nship.frame);
+    assert(zone_game_debug_behavior_tick(classic) == zone_game_debug_behavior_tick(native));
+
+    const ZoneRenderItem cshot = find_sprite(classic, 148);
+    const ZoneRenderItem nshot = find_sprite(native, 148);
+    assert(cshot.sprite_id == 148 && nshot.sprite_id == 148);
+    assert(fabsf(cshot.x - nshot.x) < 0.001f);
+    assert(fabsf(cshot.y - nshot.y) < 0.001f);
+    assert(zone_game_active_projectiles(classic) == zone_game_active_projectiles(native));
+
+    const ZoneHUDState ch = zone_game_hud(classic);
+    const ZoneHUDState nh = zone_game_hud(native);
+    assert(ch.score == nh.score && ch.shields == nh.shields && ch.wave == nh.wave);
+    assert(ch.ammo == nh.ammo && ch.bases == nh.bases && ch.enemies == nh.enemies);
+
+    zone_game_destroy(classic);
+    zone_game_destroy(native);
+}
+
 int main(void) {
+    test_native_master_motion_substeps();
+    test_native_master_matches_classic_boundary();
+    test_native_master_long_run_classic_parity();
     test_muzzle_table();
     test_recovered_mother_motion_and_hq_fire_constants();
     test_mobile_mother_quota_and_kill_activation();
@@ -948,6 +1052,7 @@ int main(void) {
     test_player_mother_base_collision();
     test_world_body_exchange_latch();
 
+    puts("720-Hz master motion substeps + Classic-boundary parity: PASS");
     puts("ZoneCore deterministic smoke test: PASS");
     puts("48-frame original muzzle-offset regression: PASS");
     puts("Recovered player-impact damage tables: PASS");

@@ -41,4 +41,4 @@ echo
 
 echo
 echo "Useful raw filter:"
-echo "  grep -E 'presentation|timebase|host-detail|slow-trigger|frame-gap|slow-advance|slow-cpu-frame|texture-miss|voice-steal|sprite-preload' '$LOG'"
+echo "  grep -E 'presentation|timebase|dynamics|host-detail|slow-trigger|frame-gap|slow-advance|slow-cpu-frame|texture-miss|voice-steal|sprite-preload' '$LOG'"

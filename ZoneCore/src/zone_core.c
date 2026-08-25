@@ -82,6 +82,7 @@ struct ZoneGame {
     int fire_cooldown;
     uint8_t fire_latch;
     uint8_t pause_latch;
+    uint8_t master_phase; /* 0..11: native high-rate motion phase */
 
     struct WorldObject world[ZONE_WORLD_CAP];
     uint64_t world_contact_bits[ZONE_WORLD_CAP];
@@ -1428,6 +1429,259 @@ void zone_game_step(ZoneGame *g, ZoneInput in) {
     }
 }
 
+
+/* Milestone 1.5 native high-rate path.
+ *
+ * The public zone_game_step() above remains the exact one-Classic-step API
+ * used by the existing deterministic regression suite. This parallel path
+ * decomposes that same interval onto the 720-Hz master grid:
+ *
+ *   phase 0:     recovered discrete decisions (input/AI/RNG/fire/timers)
+ *   phases 0..11 continuous position integration at 1/12 displacement
+ *   phase 11:    recovered Classic collision/lifetime/wave/explosion boundary
+ *
+ * This produces genuine intermediate simulation positions for high-refresh
+ * presentation without multiplying Classic AI/RNG/timer cadence. Exact-pixel
+ * collision intentionally remains at the Classic boundary in this milestone;
+ * high-rate collision is a separate Remaster-policy decision.
+ */
+int32_t zone_game_advance_master_ticks(ZoneGame *g, ZoneInput in, uint32_t master_ticks) {
+    if (!g || master_ticks == 0) return 0;
+
+    const float motion_fraction = 1.0f / (float)ZONE_MASTER_TICKS_PER_CLASSIC_STEP;
+    int32_t completed_classic_steps = 0;
+
+    for (uint32_t master = 0; master < master_ticks; ++master) {
+        if (in.pause && !g->pause_latch) g->paused = !g->paused;
+        g->pause_latch = in.pause;
+        if (g->paused) continue;
+
+        const uint8_t phase = g->master_phase;
+        const int classic_begin = phase == 0;
+        const int classic_end = phase == (ZONE_MASTER_TICKS_PER_CLASSIC_STEP - 1u);
+
+        if (classic_begin) {
+            ++g->behavior_tick;
+
+            if (g->player_alive) {
+                const float turn = in.turn < -0.25f ? -1.0f : (in.turn > 0.25f ? 1.0f : 0.0f);
+                g->heading = tz_wrap_heading(g->heading + turn * ZONE_CLASSIC_TURN_DEG);
+
+                if (in.thrust > 0.5f) {
+                    float vertical = g->player_vy;
+                    float horizontal = g->player_vx;
+                    if (tz_apply_player_thrust(&vertical, &horizontal,
+                                               g->heading, g->player_max_speed,
+                                               g_neg_sin_360, g_cos_360)) {
+                        g->player_vx = horizontal;
+                        g->player_vy = vertical;
+                    }
+                }
+
+                if (g->fire_cooldown > 0) --g->fire_cooldown;
+                if (in.fire && g->fire_cooldown == 0 && spawn_projectile(g)) {
+                    g->fire_cooldown = ZONE_FIRE_COOLDOWN_TICKS;
+                }
+                g->fire_latch = in.fire;
+            } else {
+                if (g->respawn_ticks > 0) --g->respawn_ticks;
+                if (g->respawn_ticks == 0) respawn_player(g);
+            }
+
+            for (int i = 0; i < ZONE_WORLD_CAP; ++i) {
+                struct WorldObject *o = &g->world[i];
+                if (!o->active) continue;
+                ++o->tick;
+
+                update_simple_enemy_ai(g, o);
+                update_complex_enemy_ai(g, o);
+                update_enemy_fire(g, i);
+                update_hq_fire(g, i);
+
+                if (!is_enemy_type(o->type) &&
+                    o->type != TZ_TYPE_MOTH && o->type != TZ_TYPE_BASE &&
+                    (o->tick & 7) == 0 && o->frame_count > 0) {
+                    o->frame = (o->frame + 1) % o->frame_count;
+                }
+            }
+        }
+
+        if (g->player_alive) {
+            g->player_x = wrapf(
+                g->player_x + g->player_vx * ZONE_MOTION_X_SCALE * motion_fraction,
+                ZONE_LOGICAL_WIDTH);
+            g->player_y = wrapf(
+                g->player_y + g->player_vy * ZONE_MOTION_Y_SCALE * motion_fraction,
+                ZONE_LOGICAL_HEIGHT);
+        }
+
+        for (int i = 0; i < ZONE_WORLD_CAP; ++i) {
+            struct WorldObject *o = &g->world[i];
+            if (!o->active) continue;
+            if (o->type == TZ_TYPE_ASTE || o->type == TZ_TYPE_ROCK ||
+                o->type == TZ_TYPE_STON || o->type == TZ_TYPE_MOTH ||
+                o->type == TZ_TYPE_BASE || is_enemy_type(o->type)) {
+                o->x = wrapf(
+                    o->x + o->vx * ZONE_MOTION_X_SCALE * motion_fraction,
+                    ZONE_LOGICAL_WIDTH);
+                o->y = wrapf(
+                    o->y + o->vy * ZONE_MOTION_Y_SCALE * motion_fraction,
+                    ZONE_LOGICAL_HEIGHT);
+            }
+        }
+
+        for (int i = 0; i < ZONE_PROJECTILE_CAP; ++i) {
+            struct Projectile *p = &g->projectiles[i];
+            if (!p->active) continue;
+            p->x = wrapf(
+                p->x + p->vx * ZONE_MOTION_X_SCALE * motion_fraction,
+                ZONE_LOGICAL_WIDTH);
+            p->y = wrapf(
+                p->y + p->vy * ZONE_MOTION_Y_SCALE * motion_fraction,
+                ZONE_LOGICAL_HEIGHT);
+        }
+
+        if (classic_end) {
+            for (int i = 0; i < ZONE_WORLD_CAP; ++i) {
+                struct WorldObject *o = &g->world[i];
+                if (o->active && o->hit_flash_ticks > 0) --o->hit_flash_ticks;
+            }
+
+            for (int i = 0; i < ZONE_PROJECTILE_CAP; ++i) {
+                struct Projectile *p = &g->projectiles[i];
+                if (!p->active) continue;
+                if (--p->life <= 0) {
+                    deactivate_projectile(g, p);
+                    continue;
+                }
+
+                if (p->hostile) {
+                    if (g->player_alive &&
+                        exact_overlap_ids(p->sprite, p->x, p->y,
+                                          current_ship_sprite(g), g->player_x, g->player_y)) {
+                        deactivate_projectile(g, p);
+                        if (g->shields > 0) --g->shields;
+                        if (g->shields <= 0) begin_player_death(g);
+                        audio_push(g, ZONE_AUDIO_COLLISION, g->player_x, g->player_y);
+                    }
+                    continue;
+                }
+
+                for (int j = 0; j < ZONE_WORLD_CAP && p->active; ++j) {
+                    struct WorldObject *o = &g->world[j];
+                    if (!o->active) continue;
+                    const int threshold = destruction_threshold(g, o->type);
+                    if (threshold <= 0) continue;
+                    if (!exact_overlap_ids(p->sprite, p->x, p->y,
+                                           o->sprite_base + o->frame, o->x, o->y)) continue;
+                    deactivate_projectile(g, p);
+                    (void)apply_player_shot_to_world(g, j, tz_shot_damage_from_upgrade(0));
+                }
+            }
+
+            if (g->player_alive) {
+                for (int i = 0; i < ZONE_WORLD_CAP; ++i) {
+                    struct WorldObject *o = &g->world[i];
+                    if (!o->active || !is_pickup_type(o->type)) continue;
+                    if (exact_overlap_ids(current_ship_sprite(g), g->player_x, g->player_y,
+                                          o->sprite_base + o->frame, o->x, o->y)) {
+                        collect_pickup(g, o);
+                    }
+                }
+            }
+
+            for (int i = 0; g->player_alive && i < ZONE_WORLD_CAP; ++i) {
+                struct WorldObject *o = &g->world[i];
+                if (!o->active || !is_physical_world_type(o->type)) continue;
+
+                const int touching = exact_overlap_ids(current_ship_sprite(g),
+                                                       g->player_x, g->player_y,
+                                                       o->sprite_base + o->frame,
+                                                       o->x, o->y);
+                if (!touching) {
+                    o->player_contact = 0;
+                    continue;
+                }
+                if (o->player_contact) continue;
+                o->player_contact = 1;
+
+                const float speed_before = speed2d(g->player_vx, g->player_vy);
+                int damage = 0;
+                if (o->type == TZ_TYPE_MOTH || o->type == TZ_TYPE_BASE) {
+                    damage = tz_player_base_impact_damage(speed_before, g->shield_strength);
+                    tz_swap_screen_velocity(&g->player_vx, &g->player_vy, &o->vx, &o->vy);
+                } else {
+                    tz_swap_screen_velocity(&g->player_vx, &g->player_vy, &o->vx, &o->vy);
+                    const float speed_after = speed2d(g->player_vx, g->player_vy);
+                    damage = tz_player_impact_damage(o->type, speed_before,
+                                                     speed_after, g->shield_strength);
+                }
+
+                if (o->type == TZ_TYPE_SEEK) {
+                    set_enemy_hit_state(g, o, 1,
+                        (uint32_t)tz_seeker_player_collision_hit_backdate());
+                }
+                if (damage > 0) {
+                    g->shields -= damage;
+                    if (g->shields <= 0) begin_player_death(g);
+                }
+                audio_push(g, ZONE_AUDIO_COLLISION, g->player_x, g->player_y);
+            }
+
+            for (int i = 0; i < ZONE_WORLD_CAP; ++i) {
+                struct WorldObject *a = &g->world[i];
+                if (!a->active || !is_wave1_world_exchange_type(a->type)) continue;
+                for (int j = i + 1; j < ZONE_WORLD_CAP; ++j) {
+                    struct WorldObject *b = &g->world[j];
+                    if (!b->active || !is_wave1_world_exchange_type(b->type)) {
+                        set_world_pair_contact(g, i, j, 0);
+                        continue;
+                    }
+                    const int touching = exact_overlap_ids(a->sprite_base + a->frame,
+                                                           a->x, a->y,
+                                                           b->sprite_base + b->frame,
+                                                           b->x, b->y);
+                    if (!touching) {
+                        set_world_pair_contact(g, i, j, 0);
+                        continue;
+                    }
+                    if (!world_pair_contact(g, i, j)) {
+                        set_world_pair_contact(g, i, j, 1);
+                        tz_swap_screen_velocity(&a->vx, &a->vy, &b->vx, &b->vy);
+                    }
+                }
+            }
+
+            if (g->bases_remaining == 0 && g->enemies_remaining == 0) {
+                if (g->wave < 18) {
+                    if (g->wave_clear_ticks == 0) g->wave_clear_ticks = ZONE_WAVE_CLEAR_TICKS;
+                    else if (--g->wave_clear_ticks == 0) {
+                        ++g->wave;
+                        populate_fixed_wave(g, (unsigned)g->wave);
+                    }
+                } else {
+                    g->wave_clear_ticks = -1;
+                }
+            } else {
+                g->wave_clear_ticks = 0;
+            }
+
+            for (int i = 0; i < ZONE_EXPLOSION_CAP; ++i) {
+                struct Explosion *e = &g->explosions[i];
+                if (!e->active) continue;
+                ++e->age;
+                if ((e->age / 2) >= e->frame_count) e->active = 0;
+            }
+
+            ++completed_classic_steps;
+        }
+
+        g->master_phase = (uint8_t)((phase + 1u) % ZONE_MASTER_TICKS_PER_CLASSIC_STEP);
+    }
+
+    return completed_classic_steps;
+}
+
 int32_t zone_game_render_item_count(const ZoneGame *g) {
     if (!g) return 0;
     int n = g->player_alive ? 1 : 0;
@@ -1705,6 +1959,10 @@ void zone_game_debug_load_fixed_wave(ZoneGame *g, int32_t wave) {
 
 uint32_t zone_game_debug_behavior_tick(const ZoneGame *g) {
     return g ? g->behavior_tick : 0u;
+}
+
+uint32_t zone_game_debug_master_phase(const ZoneGame *g) {
+    return g ? g->master_phase : 0u;
 }
 
 int32_t zone_game_active_hostile_projectiles(const ZoneGame *g) {

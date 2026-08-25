@@ -42,6 +42,17 @@ function legacy_ms(    i,s) {
   if (value("clamped")+0) clamp++
   if (steps > maxCatchup) maxCatchup=steps
 }
+/\[ZonePerf\]\[dynamics\] mode=/ { dynamicsMode=$0 }
+/\[ZonePerf\]\[dynamics\] frame=/ {
+  dynamics++
+  mt=value("masterTicks")+0
+  cs=value("classicSteps")+0
+  dc=value("core")+0
+  if (mt > maxMasterTicks) maxMasterTicks=mt
+  if (cs > maxDynamicsClassic) maxDynamicsClassic=cs
+  if (dc > maxDynamicsCore) { maxDynamicsCore=dc; maxDynamicsCoreFrame=value("frame") }
+  if (value("clamped")+0) dynamicsClamp++
+}
 /\[ZonePerf\]\[renderer\] frame-gap/ {
   frameGap++
   raw=value("gap")
@@ -87,6 +98,8 @@ function legacy_ms(    i,s) {
 }
 END {
   if (presentation != "") printf "  requested presentation: %s Hz\n", presentation
+  if (dynamicsMode != "") print "  " dynamicsMode
+  if (dynamics) printf "  native dynamics events: %d | max master ticks/present: %d | max Classic completions: %d | dynamics clamps: %d | max core batch: %.3f ms (frame %s)\n", dynamics+0, maxMasterTicks+0, maxDynamicsClassic+0, dynamicsClamp+0, maxDynamicsCore+0, maxDynamicsCoreFrame
   if (preload != "") print "  " preload
   printf "  frame gaps: %d", frameGap+0
   if (frameGap) printf " (max %.3f ms at frame %s)", maxGap, maxGapFrame

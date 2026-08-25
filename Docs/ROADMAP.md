@@ -82,9 +82,9 @@ Completed:
 
 Remaining platform work includes the planned display-independent high-refresh timebase/presentation track, followed by product/UI polish and iPad device validation.
 
-## Phase 3 — Live Classic gameplay reconstruction — ~70%
+## Phase 3 — Live Classic gameplay reconstruction — ~72%
 
-**Current phase: Milestone 1.4.**
+**Current phase: Milestone 1.5.**
 
 Milestone 1.3 completes the recovered Bee/Seeker timed hit-state behavior currently supported by the portable object model. Bee and Seeker now honor their 60-TickCount `+66/+92` coast gates; Seeker player collision applies the recovered 30-tick timestamp backdate; and Professional Wave 2 regression-tests a real other-Mother Bee donor. The earlier "Bee return" roadmap wording is corrected because PPC `0x154A8` contains no parent-return state.
 
@@ -159,15 +159,27 @@ Milestone 1.4 establishes the display-independent timebase foundation without re
 - preserves Classic TickCount-derived durations independently of monitor refresh;
 - keeps interpolation/extrapolation out of the foundational path.
 
-The next high-refresh promotion is to decompose continuous dynamics from the monolithic Classic step and move only rate-correct motion/integration onto the master grid. AI/RNG/fire gates/timers remain on recovered cadence.
+### Milestone 1.5 — Native high-rate dynamics
+
+Milestone 1.5 promotes continuous motion onto the already-proven 720-Hz master grid while preserving the 60-Hz Classic rule boundary:
+
+- player, world-object and projectile positions receive real 1/720-second integration updates;
+- each master displacement is exactly 1/12 of the recovered per-Classic-step displacement;
+- input/thrust decisions, AI, RNG/fire gates, object ticks and animation decisions remain once per Classic interval;
+- exact-pixel collision, projectile lifetime, pickups, impact damage, wave lifecycle and explosion aging remain on the Classic end boundary;
+- `zone_game_step()` remains unchanged as the deterministic Classic reference API;
+- new regressions compare one Classic interval against twelve master ticks and run a 180-interval changing-input parity trace;
+- the host retains an explicit Classic/high dynamics A/B switch; interpolation and extrapolation remain absent.
+
+This completes the first genuine high-refresh dynamics promotion. High-rate collision remains a separate Remastered-policy question because changing collision sampling frequency can change observable Classic outcomes.
 
 Next priorities:
 
-1. Milestone 1.4 display-independent timebase and high-refresh simulation/presentation architecture;
-2. remaining Mother/HQ collision-state and original object-list/shared-capacity parity details;
-3. hostile-projectile lifetime, death/respawn, and wave timing fidelity on the new timebase;
-4. wave-transition presentation and procedural waves 19+;
-5. remaining `+128` Bee/Seeker spatial mode, collision/destruction/equipment special cases, and Classic RNG parity.
+1. Milestone 1.6 remaining Mother/HQ collision-state semantics and original shared-object-pool/list parity;
+2. Milestone 1.7 hostile-projectile lifetime, death/respawn, and wave timing fidelity on the new timebase;
+3. Milestone 1.8 wave-transition presentation and procedural waves 19+;
+4. Milestone 1.9 remaining `+128` Bee/Seeker spatial mode, collision/destruction/equipment special cases, and Classic RNG parity;
+5. Version 2.0 continuous complete Classic Mode.
 
 ## Phase 4 — Full Classic Mode — ~32%
 

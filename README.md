@@ -2,7 +2,7 @@
   <img src="Docs/images/TheZoneRemastered-Ship.png" alt="The Zone Remastered ship" width="720">
 </p>
 
-# The Zone Remastered — Engineering Milestone 1.4
+# The Zone Remastered — Engineering Milestone 1.5
 
 Native Apple remaster built from the reverse-engineered *TheZone* 1.5.1 game logic and assets.
 
@@ -11,6 +11,14 @@ Native Apple remaster built from the reverse-engineered *TheZone* 1.5.1 game log
 - **The Zone macOS** — native macOS application, verified building and running on macOS 15 Sequoia. Keyboard is canonical; controllers exposed by Apple's `GameController.framework` are supported as an alternate input path.
 - **The Zone iPadOS** — separate native iPadOS application target. Apple-supported game controllers are first-class; touch controls remain available when no controller is connected.
 - **ZoneCore** — deterministic portable C engine library, with no AppKit/UIKit/Metal dependencies.
+
+## Milestone 1.5 — Native High-Rate Dynamics Phase 1
+
+Milestone 1.5 moves real player, world-object, and projectile position integration onto the **720-Hz master grid**. Recovered decisions remain on the **60-Hz Classic cadence**: input/thrust decisions, AI, RNG/fire gates, timers, exact-pixel collision, projectile lifetime, wave lifecycle, and explosion aging are not multiplied by display refresh. Twelve master substeps land on the same Classic boundary while 120/144/165/240-Hz displays can observe genuinely new ZoneCore positions between those boundaries.
+
+The old `zone_game_step()` remains unchanged as the deterministic Classic reference. Native high-rate motion is the default host path; `Tools/run-macos-refresh.command ... classic` selects the accepted 1.4 path for direct A/B testing. No interpolation or extrapolation is introduced.
+
+Detailed notes: [`Docs/MILESTONE-1.5.md`](Docs/MILESTONE-1.5.md) and [`Docs/RE-high-rate-dynamics.md`](Docs/RE-high-rate-dynamics.md).
 
 ## Milestone 1.4 — Display-Independent Timebase & Native-Refresh Presentation
 

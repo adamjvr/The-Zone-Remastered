@@ -13,6 +13,10 @@ extern "C" {
 #define ZONE_MAX_RENDER_ITEMS 160
 #define ZONE_MAX_AUDIO_EVENTS 16
 
+#define ZONE_MASTER_HZ 720u
+#define ZONE_CLASSIC_HZ 60u
+#define ZONE_MASTER_TICKS_PER_CLASSIC_STEP (ZONE_MASTER_HZ / ZONE_CLASSIC_HZ)
+
 typedef struct ZoneGame ZoneGame;
 
 typedef struct ZoneInput {
@@ -76,6 +80,7 @@ ZoneGame *zone_game_create(uint32_t seed);
 void zone_game_destroy(ZoneGame *game);
 void zone_game_reset(ZoneGame *game, uint32_t seed);
 void zone_game_step(ZoneGame *game, ZoneInput input);
+int32_t zone_game_advance_master_ticks(ZoneGame *game, ZoneInput input, uint32_t master_ticks);
 
 int32_t zone_game_render_item_count(const ZoneGame *game);
 ZoneRenderItem zone_game_render_item_at(const ZoneGame *game, int32_t index);
@@ -127,6 +132,7 @@ void zone_game_debug_set_rotor_state(ZoneGame *game, int32_t index,
                                      int32_t rotor_state, int32_t heading_degrees);
 void zone_game_debug_load_fixed_wave(ZoneGame *game, int32_t wave);
 uint32_t zone_game_debug_behavior_tick(const ZoneGame *game);
+uint32_t zone_game_debug_master_phase(const ZoneGame *game);
 
 #ifdef __cplusplus
 }
