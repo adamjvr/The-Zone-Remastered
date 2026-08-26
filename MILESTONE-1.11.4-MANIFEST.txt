@@ -1,0 +1,13 @@
+The Zone Remastered — Hotfix 1.11.4
+
+Files:
+  APPLY-HOTFIX-1.11.4.command
+  Tools/apply-hotfix-1.11.4.py
+  Tools/verify-hotfix-1.11.4.command
+  Docs/HOTFIX-1.11.4-cinematic-title-motion.md
+  MILESTONE-1.11.4-MANIFEST.txt
+  FILES-HOTFIX-1.11.4.sha256
+
+Intent:
+  Slow the smooth title-ship motion and decorative display arcs without
+  changing gameplay or the accepted 1.11 spatial/runtime behavior.

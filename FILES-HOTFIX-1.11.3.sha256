@@ -1,0 +1,5 @@
+b98811086bd2e1f662f6b10ad4458f882cb35b825ac284f8ac26d205b3e200a7  APPLY-HOTFIX-1.11.3.command
+f3410cd81447fc60276cc9ac6990e927e7f54ffba67acc1df3ed8f985c16efcd  Tools/apply-hotfix-1.11.3.py
+ca714a6ba1acd1d29c33316f07802ef6f4016e4901a6e1695bebeee000d0d9a9  Tools/verify-hotfix-1.11.3.command
+b72ac0e84f3a5e35b81c7deb16ef63ea5eb549e90c226bc07ca7aefe94bc8bb6  Docs/HOTFIX-1.11.3-key-window-input-isolation.md
+602214edfed83ffdf6b08dea51994c260e976294aeaa47b6486f6090ab253f77  MILESTONE-1.11.3-MANIFEST.txt

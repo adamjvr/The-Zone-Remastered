@@ -1,8 +1,8 @@
-19d36f18d3e3240443b4fa08efcf888df53633d148238e5eca0fba557ab66e8e  ./APPLY-MILESTONE-1.10.command
-c58eca6c3a5db16a720409fb5a97906a702c340effcf6604e59944ceda188a8f  ./Docs/MILESTONE-1.10.md
-4994581590fd0e6aed18ac8a504f8fd575a39a6207082ffb1c0a68b2399eb0ed  ./Docs/RE-object-list-slot-order.md
-5460fa2dfe9c825238afb1a4ae0a86735af964912704a4aebd78c29dd1c30b5c  ./MILESTONE-1.10-MANIFEST.txt
-94cc2df91d9be319957ad1d6bb7d9c28f202d70ccb163a9e64ec14e7b8ed3ac9  ./Tools/verify-milestone-1.10.command
-2efc2f3e8b2f64b9dde033df89998c391ed72377676d1cf089f18e82f1af991f  ./ZoneCore/include/zone_core.h
-f54a06d410b5e33a75644c66f78905fc53f101874f0bb85891582bf487a3e337  ./ZoneCore/src/zone_core.c
-3d5003da3c81c5f8c5ac6059908b5aeeb46db7bdff44170bc179933f15ba75f6  ./ZoneCore/tests/test_zone_core.c
+b04339529cb94eb49131f43adab167417b2457b8b46f2d0e5dc192ff4d730e9c  ./APPLY-MILESTONE-1.11.command
+01e118c17c4c22e2297948288056a2c070d43f0d3f107f4fe420ecd9b941cf92  ./Docs/MILESTONE-1.11.md
+98715cd7ed49304d2604fb98b6315f25628c8252b296e423bd6512d17f425f73  ./Docs/RE-world-camera-radar-spatial.md
+c9da80df62c41381ad3729bc427c3258d3e53c3aa78b1a729910242eda211591  ./MILESTONE-1.11-MANIFEST.txt
+3a5e8ef903235eb488aacbe0068e1343947dbca0d972efc8ffd712043c415e37  ./Tools/apply-milestone-1.11.py
+3398194f0dc6980e3fbad33e774cafadc01e48ae85c7edff5f408eb9c1058abc  ./Tools/test-spatial-1.11.sh
+5ec6af5b7efade0438fd595e64d1d774cf97c06ab24be7517342341881c89925  ./Tools/verify-milestone-1.11.command
+c57f0d6004551999c7c38447831e26ec9b5aa02216887221e0e28f139e6dc622  ./ZoneCore/tests/test_spatial_1_11.c

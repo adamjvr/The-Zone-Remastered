@@ -1,0 +1,18 @@
+Milestone 1.11 repo-root overlay
+Base commit: d0aea36c484ceffd796717ded325d660f8243ed5
+
+Files delivered:
+  APPLY-MILESTONE-1.11.command
+  Tools/apply-milestone-1.11.py
+  Tools/verify-milestone-1.11.command
+  Tools/test-spatial-1.11.sh
+  ZoneCore/tests/test_spatial_1_11.c
+  Docs/MILESTONE-1.11.md
+  Docs/RE-world-camera-radar-spatial.md
+  MILESTONE-1.11-MANIFEST.txt
+  FILES.sha256
+
+Files patched by APPLY-MILESTONE-1.11.command:
+  ZoneCore/include/zone_core.h
+  ZoneCore/src/zone_core.c
+  ZoneCore/tests/test_zone_core.c

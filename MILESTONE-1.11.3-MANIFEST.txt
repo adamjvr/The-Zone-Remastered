@@ -1,0 +1,20 @@
+The Zone Remastered — Hotfix 1.11.3r1
+
+Purpose: isolate macOS key-window/input activity from title animation pacing.
+
+Files:
+- APPLY-HOTFIX-1.11.3.command
+- Tools/apply-hotfix-1.11.3.py
+- Tools/verify-hotfix-1.11.3.command
+- Docs/HOTFIX-1.11.3-key-window-input-isolation.md
+- FILES-HOTFIX-1.11.3.sha256
+
+Modifies on apply:
+- Shared/ZoneContentView.swift
+
+Requires:
+- Milestone 1.11 candidate
+- Hotfix 1.11.2 source marker (which subsumes the title changes from 1.11.1)
+
+Packaging revision:
+- r1 fixes the original 1.11.3 prerequisite-marker bug

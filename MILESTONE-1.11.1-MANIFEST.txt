@@ -1,0 +1,16 @@
+Milestone 1.11.1 title/menu frame-pacing hotfix overlay
+Committed base expected: d0aea36c484ceffd796717ded325d660f8243ed5
+Requires: applied Milestone 1.11 candidate
+
+Payload files:
+  APPLY-HOTFIX-1.11.1.command
+  Tools/apply-hotfix-1.11.1.py
+  Tools/verify-hotfix-1.11.1.command
+  Docs/HOTFIX-1.11.1-title-frame-pacing.md
+  MILESTONE-1.11.1-MANIFEST.txt
+  FILES-HOTFIX-1.11.1.sha256
+
+File patched in place:
+  Shared/ZoneContentView.swift
+
+No ZoneCore gameplay files are modified by this hotfix.

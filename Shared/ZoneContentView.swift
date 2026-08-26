@@ -1,5 +1,6 @@
 import Foundation
 import GameController
+import ImageIO
 import SwiftUI
 
 #if os(macOS)
@@ -25,13 +26,73 @@ private enum ZoneFrontEndCommand: Equatable {
   case back
 }
 
-/// Lightweight menu-only controller polling. Gameplay keeps using
-/// ZoneControllerManager and its recovered semantic input path; this monitor
-/// exists only while a SwiftUI front-end/pause screen is visible.
+#if os(macOS)
+/// Native key-window keyboard capture for the animated title screen.
+///
+/// The title used to become a SwiftUI focus target so `.onKeyPress` could own
+/// arrows/Return. That means clicking the game window changes focus state in the
+/// same SwiftUI tree that is continuously redrawing the ship and starfield.
+/// 1.11.3 removes that coupling on macOS: AppKit delivers key-down events through
+/// a local event monitor while the title is visible, with no focusable SwiftUI
+/// node and no FocusState mutation on activation.
+private final class ZoneMacFrontEndKeyboardMonitor: ObservableObject {
+  private var monitor: Any?
+  private var handler: ((ZoneFrontEndCommand) -> Void)?
+
+  deinit { stop() }
+
+  func start(_ handler: @escaping (ZoneFrontEndCommand) -> Void) {
+    stop()
+    self.handler = handler
+    monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
+      guard let self, NSApplication.shared.isActive else { return event }
+
+      switch event.keyCode {
+      case 126: // up arrow
+        self.handler?(.up)
+        return nil
+      case 125: // down arrow
+        self.handler?(.down)
+        return nil
+      case 123: // left arrow
+        self.handler?(.left)
+        return nil
+      case 124: // right arrow
+        self.handler?(.right)
+        return nil
+      case 36, 76: // Return / keypad Enter
+        self.handler?(.accept)
+        return nil
+      case 53: // Escape
+        self.handler?(.back)
+        return nil
+      default:
+        return event
+      }
+    }
+  }
+
+  func stop() {
+    if let monitor {
+      NSEvent.removeMonitor(monitor)
+      self.monitor = nil
+    }
+    handler = nil
+  }
+}
+#endif
+
+/// Event-driven front-end controller input. Gameplay keeps using
+/// ZoneControllerManager and its recovered semantic input path. The previous
+/// menu implementation polled GameController from a 60-Hz main-run-loop Timer;
+/// that independent clock competed with SwiftUI's animation timeline and could
+/// visibly disturb title-screen frame pacing.  Milestone 1.11.1 binds to the
+/// active controller's physical input profile instead, so an idle menu creates
+/// no periodic controller work on the UI thread.
 private final class ZoneFrontEndInputMonitor: ObservableObject {
   @Published private(set) var hasController = !GCController.controllers().isEmpty
 
-  private var timer: Timer?
+  private var boundProfile: GCPhysicalInputProfile?
   private var observers: [NSObjectProtocol] = []
   private var handler: ((ZoneFrontEndCommand) -> Void)?
 
@@ -43,15 +104,20 @@ private final class ZoneFrontEndInputMonitor: ObservableObject {
   private var lastBack = false
 
   init() {
+    // Milestone 1.11.3 macOS key-window input isolation: do not run
+    // wireless controller discovery on a keyboard-driven Mac title
+    // screen. Existing connected controllers remain discoverable.
+    #if !os(macOS)
     GCController.startWirelessControllerDiscovery(completionHandler: nil)
+    #endif
     let nc = NotificationCenter.default
     observers.append(
       nc.addObserver(forName: .GCControllerDidConnect, object: nil, queue: .main) { [weak self] _ in
-        self?.refreshControllerState()
+        self?.controllerTopologyChanged()
       })
     observers.append(
       nc.addObserver(forName: .GCControllerDidDisconnect, object: nil, queue: .main) { [weak self] _ in
-        self?.refreshControllerState()
+        self?.controllerTopologyChanged()
       })
   }
 
@@ -64,19 +130,18 @@ private final class ZoneFrontEndInputMonitor: ObservableObject {
     stop()
     self.handler = handler
     refreshControllerState()
-    primeEdges()
-
-    let next = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
-      self?.sample()
-    }
-    timer = next
-    RunLoop.main.add(next, forMode: .common)
+    bindActiveController()
   }
 
   func stop() {
-    timer?.invalidate()
-    timer = nil
+    boundProfile?.valueDidChangeHandler = nil
+    boundProfile = nil
     handler = nil
+  }
+
+  private func controllerTopologyChanged() {
+    refreshControllerState()
+    if handler != nil { bindActiveController() }
   }
 
   private func refreshControllerState() {
@@ -85,6 +150,28 @@ private final class ZoneFrontEndInputMonitor: ObservableObject {
 
   private func activeController() -> GCController? {
     GCController.current ?? GCController.controllers().first
+  }
+
+  private func bindActiveController() {
+    boundProfile?.valueDidChangeHandler = nil
+    boundProfile = nil
+
+    guard handler != nil, let controller = activeController() else {
+      primeEdges()
+      return
+    }
+
+    let profile = controller.physicalInputProfile
+    boundProfile = profile
+    primeEdges()
+
+    profile.valueDidChangeHandler = { [weak self] _, _ in
+      // GameController may deliver profile callbacks away from the main queue.
+      // All menu state and edge bookkeeping remains serialized on main.
+      DispatchQueue.main.async {
+        self?.sample()
+      }
+    }
   }
 
   private func currentState() -> (
@@ -239,7 +326,11 @@ private struct ZoneTitleScreen: View {
   @ObservedObject var session: ZoneAppSession
   @StateObject private var controller = ZoneFrontEndInputMonitor()
   @State private var selection = 0
+  #if os(macOS)
+  @StateObject private var keyboard = ZoneMacFrontEndKeyboardMonitor()
+  #else
   @FocusState private var keyboardFocused: Bool
+  #endif
 
   private var itemCount: Int {
     #if os(macOS)
@@ -279,6 +370,17 @@ private struct ZoneTitleScreen: View {
         }
       }
     }
+    #if os(macOS)
+    .onAppear {
+      selection = min(selection, itemCount - 1)
+      controller.start(handleController)
+      keyboard.start(handleKeyboard)
+    }
+    .onDisappear {
+      keyboard.stop()
+      controller.stop()
+    }
+    #else
     .focusable()
     .focused($keyboardFocused)
     .onAppear {
@@ -295,10 +397,19 @@ private struct ZoneTitleScreen: View {
       moveSelection(1)
       return .handled
     }
+    .onKeyPress(.leftArrow) {
+      moveSelection(-1)
+      return .handled
+    }
+    .onKeyPress(.rightArrow) {
+      moveSelection(1)
+      return .handled
+    }
     .onKeyPress(.return) {
       activateSelection()
       return .handled
     }
+    #endif
   }
 
   private var menu: some View {
@@ -424,6 +535,21 @@ private struct ZoneTitleScreen: View {
       break
     }
   }
+
+  #if os(macOS)
+  private func handleKeyboard(_ command: ZoneFrontEndCommand) {
+    switch command {
+    case .up, .left:
+      moveSelection(-1)
+    case .down, .right:
+      moveSelection(1)
+    case .accept:
+      activateSelection()
+    case .back:
+      break
+    }
+  }
+  #endif
 }
 
 private struct ZoneMenuActionButton: View {
@@ -514,10 +640,37 @@ private struct ZoneRotatingShip: View {
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   var body: some View {
-    TimelineView(.animation(minimumInterval: 1.0 / 24.0, paused: reduceMotion)) { timeline in
-      let phase = reduceMotion ? 0 : Int(timeline.date.timeIntervalSinceReferenceDate * 5.0)
-      let frame = ((phase % 48) + 48) % 48
-      let resource = String(format: "Spri_%05d", 1000 + frame)
+    TimelineView(.animation(paused: reduceMotion)) { timeline in
+      // Milestone 1.11.2 predecoded interpolated title ship:
+      // 1.11.1 removed the gross 5-Hz jump, but its lazy cache could still
+      // decode one new PNG on the animation path every 200 ms during the first
+      // revolution. It also dissolved between 7.5-degree poses without moving
+      // their silhouettes through the interval. 1.11.2 predecodes all 48
+      // recovered views as CGImages in one batch and geometrically aligns the
+      // two neighboring poses at the continuous in-between heading.
+      let time = reduceMotion ? 0.0 : timeline.date.timeIntervalSinceReferenceDate
+
+      // Milestone 1.11.4 cinematic title motion:
+      // The prior 9.6-second revolution was technically smooth but visually
+      // frantic. Default to a deliberate 24-second revolution and let a debug
+      // environment override tune the art direction without another rebuild.
+      let requestedCycle = ProcessInfo.processInfo.environment["ZONE_TITLE_ROTATION_SECONDS"]
+        .flatMap(Double.init) ?? 24.0
+      let cycleDuration = min(120.0, max(12.0, requestedCycle))
+      let spriteFramesPerSecond = 48.0 / cycleDuration
+      let cycleTime = time.truncatingRemainder(dividingBy: cycleDuration)
+      let spritePosition = cycleTime * spriteFramesPerSecond
+      let basePosition = floor(spritePosition)
+      let baseFrame = Int(basePosition) % 48
+      let nextFrame = (baseFrame + 1) % 48
+      let spriteBlend = reduceMotion ? 0.0 : spritePosition - basePosition
+      let frameStepDegrees = 360.0 / 48.0
+      let interpolatedStepDegrees = spriteBlend * frameStepDegrees
+
+      // Decouple the decorative arcs from the ship. Slow counter-motion reads
+      // like an instrument display instead of a spinner chasing the sprite.
+      let primaryRingDegrees = (time * 7.5).truncatingRemainder(dividingBy: 360.0)   // 48 s/rev
+      let secondaryRingDegrees = (time * -4.0).truncatingRemainder(dividingBy: 360.0) // 90 s/rev
 
       ZStack {
         Circle()
@@ -538,48 +691,73 @@ private struct ZoneRotatingShip: View {
           .trim(from: 0.08, to: 0.72)
           .stroke(.purple.opacity(0.42), style: StrokeStyle(lineWidth: 2, dash: [4, 8]))
           .padding(8)
-          .rotationEffect(.degrees(Double(frame) * 7.5))
+          .rotationEffect(.degrees(primaryRingDegrees))
 
         Circle()
           .trim(from: 0.58, to: 0.93)
           .stroke(.cyan.opacity(0.32), style: StrokeStyle(lineWidth: 1, dash: [2, 12]))
           .padding(1)
-          .rotationEffect(.degrees(Double(frame) * -3.75))
+          .rotationEffect(.degrees(secondaryRingDegrees))
 
-        ZoneBundledSpriteImage(resource: resource)
-          .padding(38)
-          .shadow(color: .cyan.opacity(0.78), radius: 10)
+        ZStack {
+          ZoneBundledSpriteFrame(frame: baseFrame)
+            .rotationEffect(.degrees(interpolatedStepDegrees))
+            .opacity(1.0 - spriteBlend)
+
+          if !reduceMotion && spriteBlend > 0.0 {
+            ZoneBundledSpriteFrame(frame: nextFrame)
+              .rotationEffect(.degrees(interpolatedStepDegrees - frameStepDegrees))
+              .opacity(spriteBlend)
+          }
+        }
+        .compositingGroup()
+        .padding(38)
+        .shadow(color: .cyan.opacity(0.78), radius: 10)
       }
     }
     .aspectRatio(1, contentMode: .fit)
   }
 }
 
-private struct ZoneBundledSpriteImage: View {
-  let resource: String
+/// Fully decoded recovered title-ship frames.  ImageIO's immediate-cache flag
+/// makes decompression a one-time cost when the store is first touched, rather
+/// than a recurring cost on display-driven SwiftUI animation updates.
+private enum ZoneTitleShipFrameStore {
+  private static let frames: [CGImage?] = {
+    let imageOptions = [kCGImageSourceShouldCacheImmediately: true] as CFDictionary
+
+    return (0..<48).map { frame -> CGImage? in
+      let resource = String(format: "Spri_%05d", 1000 + frame)
+      guard let url = Bundle.main.url(
+        forResource: resource,
+        withExtension: "png",
+        subdirectory: "Sprites"
+      ), let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
+        return nil
+      }
+      return CGImageSourceCreateImageAtIndex(source, 0, imageOptions)
+    }
+  }()
+
+  static func frame(_ index: Int) -> CGImage? {
+    guard !frames.isEmpty else { return nil }
+    let normalized = ((index % frames.count) + frames.count) % frames.count
+    return frames[normalized]
+  }
+}
+
+private struct ZoneBundledSpriteFrame: View {
+  let frame: Int
 
   @ViewBuilder var body: some View {
-    #if os(macOS)
-    if let url = Bundle.main.url(forResource: resource, withExtension: "png", subdirectory: "Sprites"),
-       let image = NSImage(contentsOf: url) {
-      Image(nsImage: image)
+    if let image = ZoneTitleShipFrameStore.frame(frame) {
+      Image(decorative: image, scale: 1.0, orientation: .up)
         .resizable()
         .interpolation(.none)
         .scaledToFit()
     } else {
       Color.clear
     }
-    #else
-    if let url = Bundle.main.url(forResource: resource, withExtension: "png", subdirectory: "Sprites"),
-       let image = UIImage(contentsOfFile: url.path) {
-      Image(uiImage: image)
-        .resizable()
-        .interpolation(.none)
-        .scaledToFit()
-    } else {
-      Color.clear
-    }
-    #endif
   }
 }
 
@@ -640,7 +818,7 @@ private struct ZoneTitleStarfield: View {
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   var body: some View {
-    TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: reduceMotion)) { timeline in
+    TimelineView(.animation(paused: reduceMotion)) { timeline in
       Canvas { context, size in
         let time = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate
         let height = max(Double(size.height), 1.0)
