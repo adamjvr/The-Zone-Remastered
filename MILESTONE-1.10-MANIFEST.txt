@@ -1,0 +1,61 @@
+The Zone Remastered — Milestone 1.10
+Shared Object Slots & +138 List Fidelity
+
+Accepted base content:
+  Milestone 1.9: restore projectile spatial retirement parity
+  GitHub checkpoint observed while packaging:
+  b6fc7e86d54679dbbbb1b832fa283ba23fb2677b
+
+Important: the installer does NOT require that exact commit SHA. It verifies
+accepted 1.9 file contents and milestone markers so equivalent-content history
+remains valid.
+
+Payload:
+  APPLY-MILESTONE-1.10.command
+  FILES.sha256
+  MILESTONE-1.10-MANIFEST.txt
+  ZoneCore/include/zone_core.h
+  ZoneCore/src/zone_core.c
+  ZoneCore/tests/test_zone_core.c
+  Docs/MILESTONE-1.10.md
+  Docs/RE-object-list-slot-order.md
+  Tools/verify-milestone-1.10.command
+
+Installer-updated existing documentation:
+  README.md
+  Docs/ROADMAP.md
+
+Recovered behavior promoted:
+  - fixed 80-record Classic object identity
+  - player/head persistent Classic slot 0
+  - 0xDDD0 mode 0 low->high slot allocation
+  - 0xDDD0 mode 1 high->low slot allocation
+  - 0xDF14 mode 0 insert immediately after head
+  - 0xDF14 mode 1 append at tail
+  - 0xDFBC exact-slot unlink/free and directional reuse
+  - player SHOT low-mode list insertion
+  - Headquarters FIRE low-mode list insertion
+  - fixed/world and moving-enemy FIRE high-mode tail insertion
+  - ship/world -> EXPL in-place Classic slot/list identity
+  - Bee donor and mobile-Mother first-match scans use +138 order
+
+Reverse-engineering result documented but intentionally NOT made live yet:
+  - +129 = coarse spatial-cell registration
+  - non-projectile +128/+129 depends on original camera/world-to-screen transform
+  - this is the planned Milestone 1.11 dependency
+
+Intentionally unchanged:
+  Shared/
+  macOS/
+  iPadOS/
+  project.yml
+  TheZoneRemastered.xcodeproj/
+  720-Hz continuous-motion architecture
+  60-Hz Classic AI/RNG/collision/lifecycle boundary
+
+Hardware acceptance:
+  1. native macOS build/play test
+  2. tethered physical iPad Pro via Xcode
+  3. commit only after both feel correct
+
+No iPad simulator acceptance is required.

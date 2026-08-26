@@ -224,6 +224,11 @@ static void test_player_death_respawn_on_ship_explosion_completion(void) {
     assert(zone_game_debug_active_explosions(g) >= 1);
     assert(zone_game_debug_explosion_previous_type(g, 0) == TZ_TYPE_SHIP);
     assert(zone_game_debug_explosion_frame(g, 0) == 0);
+    /* PPC keeps the persistent head record in slot 0 and transforms that same
+       record ship -> EXPL rather than allocating a replacement object. */
+    assert(zone_game_debug_classic_head_slot(g) == 0);
+    assert(zone_game_debug_explosion_classic_slot(g, 0) == 0);
+    assert(zone_game_debug_classic_slot_kind(g, 0) == ZONE_DEBUG_CLASSIC_EXPLOSION);
 
     advance_ticks(g, 38);
     assert(zone_game_player_alive(g) == 0);
@@ -233,6 +238,8 @@ static void test_player_death_respawn_on_ship_explosion_completion(void) {
     assert(zone_game_player_alive(g) == 1);
     assert(zone_game_hud(g).shields == 100);
     assert(zone_game_debug_respawn_pending(g) == 0);
+    assert(zone_game_debug_classic_slot_kind(g, 0) == ZONE_DEBUG_CLASSIC_PLAYER);
+    assert(zone_game_debug_classic_list_rank(g, 0) == 0);
     assert(nearly(zone_game_player_x(g), 320.0f));
     assert(nearly(zone_game_player_y(g), 240.0f));
     zone_game_destroy(g);
@@ -270,8 +277,14 @@ static void test_recovered_explosion_cadence(void) {
     const int32_t asteroid = zone_game_debug_spawn_world(
         g, TZ_TYPE_ASTE, 400.0f, 300.0f, 0.0f, 0.0f);
     assert(asteroid >= 0);
+    const int32_t classic_slot = zone_game_debug_world_classic_slot(g, asteroid);
+    const int32_t list_rank = zone_game_debug_classic_list_rank(g, classic_slot);
+    assert(classic_slot >= 0 && list_rank > 0);
     zone_game_debug_destroy_world(g, asteroid);
     assert(zone_game_debug_active_explosions(g) == 1);
+    assert(zone_game_debug_explosion_classic_slot(g, 0) == classic_slot);
+    assert(zone_game_debug_classic_slot_kind(g, classic_slot) == ZONE_DEBUG_CLASSIC_EXPLOSION);
+    assert(zone_game_debug_classic_list_rank(g, classic_slot) == list_rank);
     assert(zone_game_debug_explosion_previous_type(g, 0) == TZ_TYPE_ASTE);
     assert(zone_game_debug_explosion_frame(g, 0) == 0);
 
@@ -285,6 +298,92 @@ static void test_recovered_explosion_cadence(void) {
     assert(zone_game_debug_active_explosions(g) == 1);
     zone_game_step(g, (ZoneInput){0});
     assert(zone_game_debug_active_explosions(g) == 0);
+    assert(zone_game_debug_classic_slot_kind(g, classic_slot) == ZONE_DEBUG_CLASSIC_FREE);
+    assert(zone_game_debug_classic_list_rank(g, classic_slot) == -1);
+    zone_game_destroy(g);
+}
+
+static void test_recovered_allocator_and_list_order(void) {
+    ZoneGame *g = zone_game_create(0xDF14DDDu);
+    assert(g);
+
+    /* Startup's first low-mode allocation is the persistent head/player.
+       Fixed-wave objects use mode 1, so Wave-1 fills 79,78,77,76 in order. */
+    assert(zone_game_debug_classic_head_slot(g) == 0);
+    assert(zone_game_debug_classic_slot_kind(g, 0) == ZONE_DEBUG_CLASSIC_PLAYER);
+    assert(zone_game_debug_world_classic_slot(g, 0) == 79);
+    assert(zone_game_debug_world_classic_slot(g, 1) == 78);
+    assert(zone_game_debug_world_classic_slot(g, 2) == 77);
+    assert(zone_game_debug_world_classic_slot(g, 3) == 76);
+    assert(zone_game_debug_classic_next_slot(g, 0) == 79);
+    assert(zone_game_debug_classic_next_slot(g, 79) == 78);
+
+    park_wave1_except(g, -1, -1);
+    zone_game_debug_set_heading(g, 0.0f);
+    ZoneInput fire = {0};
+    fire.fire = 1;
+    zone_game_step(g, fire);
+    const int32_t first_projectile = zone_game_debug_find_nth_projectile(g, 0, 0);
+    assert(first_projectile >= 0);
+    const int32_t low1 = zone_game_debug_projectile_classic_slot(g, first_projectile);
+    assert(low1 == 1);
+    assert(zone_game_debug_classic_next_slot(g, 0) == 1);
+    assert(zone_game_debug_classic_next_slot(g, 1) == 79);
+
+    advance_ticks(g, 8);
+    zone_game_step(g, fire);
+    const int32_t second_projectile = zone_game_debug_find_nth_projectile(g, 0, 1);
+    assert(second_projectile >= 0);
+    const int32_t low2 = zone_game_debug_projectile_classic_slot(g, second_projectile);
+    assert(low2 == 2);
+    /* Mode 0 always inserts immediately after head, so newest low-mode object
+       precedes the prior shot even though the fixed-world tail is unchanged. */
+    assert(zone_game_debug_classic_next_slot(g, 0) == 2);
+    assert(zone_game_debug_classic_next_slot(g, 2) == 1);
+    assert(zone_game_debug_classic_next_slot(g, 1) == 79);
+
+    /* Free slot 1 by recovered off-region retirement; low-mode reuse must pick
+       the exact lowest free table record and insert it after head again. */
+    zone_game_debug_set_projectile_state(g, first_projectile, 900.0f, 240.0f, 0.0f, 0.0f);
+    zone_game_step(g, (ZoneInput){0});
+    assert(zone_game_debug_classic_slot_kind(g, 1) == ZONE_DEBUG_CLASSIC_FREE);
+    advance_ticks(g, 8);
+    zone_game_step(g, fire);
+    const int32_t reused = zone_game_debug_find_nth_projectile(g, 0, 1);
+    assert(reused >= 0);
+    assert(zone_game_debug_projectile_classic_slot(g, reused) == 1);
+    assert(zone_game_debug_classic_next_slot(g, 0) == 1);
+
+    zone_game_destroy(g);
+}
+
+static void test_hq_and_enemy_projectile_list_modes(void) {
+    ZoneGame *g = zone_game_create(0x11318u);
+    assert(g);
+    park_wave1_except(g, -1, -1);
+    zone_game_debug_set_player_state(g, 320.0f, 240.0f, 0.0f, 0.0f);
+
+    const int32_t hq = zone_game_debug_spawn_world(
+        g, TZ_TYPE_BASE, 420.0f, 240.0f, 0.0f, 0.0f);
+    assert(hq >= 0);
+    assert(zone_game_debug_world_classic_slot(g, hq) == 75);
+    assert(zone_game_debug_spawn_hostile_unbounded(g, hq) == 1);
+    const int32_t hq_fire = zone_game_debug_find_nth_projectile(g, 1, 0);
+    assert(hq_fire >= 0);
+    assert(zone_game_debug_projectile_classic_slot(g, hq_fire) == 1);
+    assert(zone_game_debug_classic_next_slot(g, 0) == 1);
+
+    const int32_t raid = zone_game_debug_spawn_world(
+        g, TZ_TYPE_RAID, 440.0f, 240.0f, 0.0f, 0.0f);
+    assert(raid >= 0);
+    assert(zone_game_debug_world_classic_slot(g, raid) == 74);
+    assert(zone_game_debug_spawn_hostile_unbounded(g, raid) == 1);
+    const int32_t raid_fire = zone_game_debug_find_nth_projectile(g, 1, 1);
+    assert(raid_fire >= 0);
+    assert(zone_game_debug_projectile_classic_slot(g, raid_fire) == 73);
+    /* Moving-enemy FIRE is mode 1, so it is appended after the world tail. */
+    assert(zone_game_debug_classic_list_rank(g, 73) >
+           zone_game_debug_classic_list_rank(g, 74));
     zone_game_destroy(g);
 }
 
@@ -1227,6 +1326,8 @@ int main(void) {
     test_recovered_projectile_spatial_retirement();
     test_native_projectile_retirement_on_classic_boundary();
     test_hostile_spatial_retirement_releases_source_cap();
+    test_recovered_allocator_and_list_order();
+    test_hq_and_enemy_projectile_list_modes();
     test_seeker_near_far_speed_switch();
     test_bee_timed_hit_state_coasts_then_retargets();
     test_seeker_player_collision_half_hit_state();
@@ -1318,6 +1419,9 @@ int main(void) {
     puts("Recovered +128 projectile spatial retirement: PASS");
     puts("Projectile lifetime countdown removal: PASS");
     puts("720-Hz spatial retirement Classic-boundary parity: PASS");
+    puts("Recovered 0xDDD0 slot reuse + 0xDF14/+138 list ordering: PASS");
+    puts("HQ low-mode vs moving-enemy high-mode FIRE insertion: PASS");
+    puts("In-place ship/world -> EXPL Classic slot identity: PASS");
     puts("Seeker 200-unit near/far speed switch: PASS");
     puts("Seeker collision 30-of-60 tick hit-state gate: PASS");
     puts("Fixed Wave 1 -> Wave 2 lifecycle: PASS");

@@ -88,6 +88,14 @@ typedef struct ZoneDebugProjectileState {
     int32_t source_slot;
 } ZoneDebugProjectileState;
 
+typedef enum ZoneDebugClassicObjectKind {
+    ZONE_DEBUG_CLASSIC_FREE = 0,
+    ZONE_DEBUG_CLASSIC_PLAYER = 1,
+    ZONE_DEBUG_CLASSIC_WORLD = 2,
+    ZONE_DEBUG_CLASSIC_PROJECTILE = 3,
+    ZONE_DEBUG_CLASSIC_EXPLOSION = 4
+} ZoneDebugClassicObjectKind;
+
 ZoneGame *zone_game_create(uint32_t seed);
 void zone_game_destroy(ZoneGame *game);
 void zone_game_reset(ZoneGame *game, uint32_t seed);
@@ -121,6 +129,13 @@ void zone_game_debug_set_projectile_state(ZoneGame *game, int32_t index,
                                           float x, float y, float vx, float vy);
 int32_t zone_game_debug_classic_object_capacity(void);
 int32_t zone_game_debug_classic_slots_used(const ZoneGame *game);
+int32_t zone_game_debug_classic_head_slot(const ZoneGame *game);
+int32_t zone_game_debug_classic_slot_kind(const ZoneGame *game, int32_t slot);
+int32_t zone_game_debug_classic_next_slot(const ZoneGame *game, int32_t slot);
+int32_t zone_game_debug_classic_list_rank(const ZoneGame *game, int32_t slot);
+int32_t zone_game_debug_world_classic_slot(const ZoneGame *game, int32_t index);
+int32_t zone_game_debug_projectile_classic_slot(const ZoneGame *game, int32_t index);
+int32_t zone_game_debug_explosion_classic_slot(const ZoneGame *game, int32_t nth);
 int32_t zone_game_debug_world_flash(const ZoneGame *game, int32_t index);
 int32_t zone_game_debug_player_flash(const ZoneGame *game);
 int32_t zone_game_debug_active_explosions(const ZoneGame *game);

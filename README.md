@@ -2,7 +2,7 @@
   <img src="Docs/images/TheZoneRemastered-Ship.png" alt="The Zone Remastered ship" width="720">
 </p>
 
-# The Zone Remastered — Engineering Milestone 1.9
+# The Zone Remastered — Engineering Milestone 1.10
 
 Native Apple remaster built from the reverse-engineered *TheZone* 1.5.1 game logic and assets.
 
@@ -11,6 +11,14 @@ Native Apple remaster built from the reverse-engineered *TheZone* 1.5.1 game log
 - **The Zone macOS** — native macOS application, verified building and running on macOS 15 Sequoia. Keyboard is canonical; controllers exposed by Apple's `GameController.framework` are supported as an alternate input path.
 - **The Zone iPadOS** — separate native iPadOS application target. Apple-supported game controllers are first-class; touch controls remain available when no controller is connected.
 - **ZoneCore** — deterministic portable C engine library, with no AppKit/UIKit/Metal dependencies.
+
+## Milestone 1.10 — Shared Object Slots & +138 List Fidelity
+
+Milestone 1.10 promotes the exact recovered 80-record allocator and `+138` object-chain ordering. The persistent player/head is Classic slot 0; mode 0 allocates low-to-high and inserts immediately after the head, while mode 1 allocates high-to-low and appends at the list tail. Player shots and Headquarters fire use the low mode; fixed/world objects and moving-enemy fire use the high mode. Ship/world destruction now transforms the same Classic record into `EXPL`, preserving slot identity and list position until finalization, and known first-match Bee/Mother scans follow Classic list order instead of typed-array order.
+
+Reverse engineering in this phase also identifies object byte `+129` as coarse spatial-cell registration. Full non-projectile `+128/+129` behavior remains deferred until the original camera/world-to-screen transform is restored rather than guessed.
+
+Detailed notes: [`Docs/MILESTONE-1.10.md`](Docs/MILESTONE-1.10.md) and [`Docs/RE-object-list-slot-order.md`](Docs/RE-object-list-slot-order.md).
 
 ## Milestone 1.9 — Recovered Projectile Spatial Retirement
 

@@ -29,6 +29,7 @@ struct Projectile {
     float x, y, vx, vy;
     int sprite;
     int source_slot;
+    int classic_slot;       /* recovered 80-record table identity */
 };
 
 struct Explosion {
@@ -39,6 +40,7 @@ struct Explosion {
     int sprite_base;
     int frame_count;
     int side;
+    int classic_slot;       /* transform preserves original 80-record identity */
 };
 
 struct WorldObject {
@@ -71,6 +73,14 @@ struct WorldObject {
     int bee_out_count;
     int bee_request_count;
     int hostile_shots;
+    int classic_slot;       /* recovered 80-record table identity */
+};
+
+struct ClassicObjectRef {
+    uint8_t occupied;
+    uint8_t kind;
+    int16_t typed_index;
+    int16_t next_slot;      /* portable surrogate for object +138 */
 };
 
 struct ZoneGame {
@@ -89,6 +99,12 @@ struct ZoneGame {
     uint64_t world_contact_bits[ZONE_WORLD_CAP];
     struct Projectile projectiles[ZONE_PROJECTILE_CAP];
     struct Explosion explosions[ZONE_EXPLOSION_CAP];
+
+    /* PPC 0xDDD0/0xDF14/0xDFBC: one shared 80-record allocator plus a +138
+       singly-linked object chain rooted at the persistent player/head record. */
+    struct ClassicObjectRef classic_objects[ZONE_CLASSIC_OBJECT_CAP];
+    int16_t classic_head_slot;
+    int16_t classic_live_count;
 
     int score, shields, wave, ammo;
     int bases_remaining, enemies_remaining;
@@ -305,21 +321,101 @@ static int destruction_threshold(const ZoneGame *g, uint32_t type) {
     return tz_damage_threshold_for_type(type, &t);
 }
 
-/* PPC startup 0x19E0..0x1A34 allocates exactly 80 pointers and 80 cleared
- * 150-byte object records. Ship, world bodies, projectiles and explosion
- * objects therefore compete for one Classic capacity. ZoneCore retains typed
- * arrays internally but now applies that shared admission limit. */
+/* PPC startup allocates 80 fixed 150-byte records. 0xDDD0 owns the exact
+ * occupancy/reuse rule; 0xDF14 owns +138 insertion; 0xDFBC splices and frees.
+ * The persistent player record is the first low-mode allocation, slot 0, and
+ * remains the list head across ship -> EXPL -> ship in-place transforms. */
+static void classic_reset_with_player_head(ZoneGame *g) {
+    if (!g) return;
+    memset(g->classic_objects, 0, sizeof(g->classic_objects));
+    for (int i = 0; i < ZONE_CLASSIC_OBJECT_CAP; ++i) {
+        g->classic_objects[i].typed_index = -1;
+        g->classic_objects[i].next_slot = -1;
+    }
+    g->classic_head_slot = 0;
+    g->classic_live_count = 1;
+    g->classic_objects[0].occupied = 1;
+    g->classic_objects[0].kind = ZONE_DEBUG_CLASSIC_PLAYER;
+}
+
 static int classic_object_slots_used(const ZoneGame *g) {
-    if (!g) return 0;
-    int n = g->player_alive ? 1 : 0;
-    for (int i = 0; i < ZONE_WORLD_CAP; ++i) n += !!g->world[i].active;
-    for (int i = 0; i < ZONE_PROJECTILE_CAP; ++i) n += !!g->projectiles[i].active;
-    for (int i = 0; i < ZONE_EXPLOSION_CAP; ++i) n += !!g->explosions[i].active;
-    return n;
+    return g ? g->classic_live_count : 0;
 }
 
 static int classic_object_slot_available(const ZoneGame *g) {
-    return classic_object_slots_used(g) < ZONE_CLASSIC_OBJECT_CAP;
+    return g && g->classic_live_count < ZONE_CLASSIC_OBJECT_CAP;
+}
+
+static int classic_allocate_and_link(ZoneGame *g, int mode, uint8_t kind, int typed_index) {
+    if (!classic_object_slot_available(g) || g->classic_head_slot < 0) return -1;
+
+    int slot = -1;
+    if (mode == 1) {
+        for (int i = ZONE_CLASSIC_OBJECT_CAP - 1; i >= 0; --i) {
+            if (!g->classic_objects[i].occupied) { slot = i; break; }
+        }
+    } else {
+        for (int i = 0; i < ZONE_CLASSIC_OBJECT_CAP; ++i) {
+            if (!g->classic_objects[i].occupied) { slot = i; break; }
+        }
+    }
+    if (slot < 0) return -1;
+
+    struct ClassicObjectRef *ref = &g->classic_objects[slot];
+    ref->occupied = 1;
+    ref->kind = kind;
+    ref->typed_index = (int16_t)typed_index;
+    ref->next_slot = -1;
+
+    if (mode == 1) {
+        int tail = g->classic_head_slot;
+        while (g->classic_objects[tail].next_slot >= 0) {
+            tail = g->classic_objects[tail].next_slot;
+        }
+        g->classic_objects[tail].next_slot = (int16_t)slot;
+    } else {
+        const int next = g->classic_objects[g->classic_head_slot].next_slot;
+        ref->next_slot = (int16_t)next;
+        g->classic_objects[g->classic_head_slot].next_slot = (int16_t)slot;
+    }
+    ++g->classic_live_count;
+    return slot;
+}
+
+static void classic_rebind_slot(ZoneGame *g, int slot, uint8_t kind, int typed_index) {
+    if (!g || slot < 0 || slot >= ZONE_CLASSIC_OBJECT_CAP) return;
+    struct ClassicObjectRef *ref = &g->classic_objects[slot];
+    if (!ref->occupied) return;
+    ref->kind = kind;
+    ref->typed_index = (int16_t)typed_index;
+}
+
+static void classic_free_slot(ZoneGame *g, int slot) {
+    if (!g || slot < 0 || slot >= ZONE_CLASSIC_OBJECT_CAP) return;
+    if (slot == g->classic_head_slot || !g->classic_objects[slot].occupied) return;
+
+    int predecessor = g->classic_head_slot;
+    while (predecessor >= 0 &&
+           g->classic_objects[predecessor].next_slot != slot) {
+        predecessor = g->classic_objects[predecessor].next_slot;
+    }
+    if (predecessor < 0) return;
+
+    g->classic_objects[predecessor].next_slot = g->classic_objects[slot].next_slot;
+    g->classic_objects[slot].occupied = 0;
+    g->classic_objects[slot].kind = ZONE_DEBUG_CLASSIC_FREE;
+    g->classic_objects[slot].typed_index = -1;
+    g->classic_objects[slot].next_slot = -1;
+    if (g->classic_live_count > 0) --g->classic_live_count;
+}
+
+static int classic_world_index_for_slot(const ZoneGame *g, int classic_slot) {
+    if (!g || classic_slot < 0 || classic_slot >= ZONE_CLASSIC_OBJECT_CAP) return -1;
+    const struct ClassicObjectRef *ref = &g->classic_objects[classic_slot];
+    if (!ref->occupied || ref->kind != ZONE_DEBUG_CLASSIC_WORLD) return -1;
+    const int index = ref->typed_index;
+    if (index < 0 || index >= ZONE_WORLD_CAP || !g->world[index].active) return -1;
+    return index;
 }
 
 static int allocate_world_slot(ZoneGame *g) {
@@ -337,11 +433,18 @@ static struct WorldObject *spawn_world_object(ZoneGame *g, uint32_t type) {
     int base = 0, frames = 0, side = 0;
     if (!object_visual_spec(type, &base, &frames, &side)) return NULL;
 
+    /* Recovered generic/fixed-world construction passes mode 1: 0xDDD0 scans
+       high -> low and 0xDF14 appends the record at the +138 list tail. */
+    const int classic_slot = classic_allocate_and_link(
+        g, 1, ZONE_DEBUG_CLASSIC_WORLD, slot);
+    if (classic_slot < 0) return NULL;
+
     clear_world_contacts_for_slot(g, slot);
     struct WorldObject *o = &g->world[slot];
     memset(o, 0, sizeof(*o));
     o->active = 1;
     o->type = type;
+    o->classic_slot = classic_slot;
     o->parent_slot = -1;
     o->requester_slot = -1;
     o->rotor_slot = -1;
@@ -381,6 +484,9 @@ static void populate_fixed_wave(ZoneGame *g, unsigned wave) {
     memset(g->world_contact_bits, 0, sizeof(g->world_contact_bits));
     memset(g->projectiles, 0, sizeof(g->projectiles));
     memset(g->explosions, 0, sizeof(g->explosions));
+    /* The original persistent head/player record is not part of wave objects.
+       Fixed-wave setup rebuilds the tail objects behind that head. */
+    classic_reset_with_player_head(g);
     g->bases_remaining = 0;
     g->enemies_remaining = 0;
     g->bee_limit = 0;
@@ -579,12 +685,14 @@ static int request_bee(ZoneGame *g, int requester_slot) {
         (requester->type != TZ_TYPE_MOTH && requester->type != TZ_TYPE_BASE)) return -1;
     if (g->bee_limit <= 0 || requester->bee_request_count >= g->bee_limit) return -1;
 
-    /* PPC 0x16504 explicitly searches for ANOTHER Mother Base/HQ and excludes
-       the requester. That donor must not already have a Bee outstanding. */
-    for (int donor_slot = 0; donor_slot < ZONE_WORLD_CAP; ++donor_slot) {
-        if (donor_slot == requester_slot) continue;
+    /* PPC 0x16568 starts at head->+138 and walks that exact chain looking
+       for ANOTHER Mother/HQ with no Bee outstanding. */
+    for (int classic_slot = g->classic_objects[g->classic_head_slot].next_slot;
+         classic_slot >= 0;
+         classic_slot = g->classic_objects[classic_slot].next_slot) {
+        const int donor_slot = classic_world_index_for_slot(g, classic_slot);
+        if (donor_slot < 0 || donor_slot == requester_slot) continue;
         struct WorldObject *donor = &g->world[donor_slot];
-        if (!donor->active) continue;
         if (donor->type != TZ_TYPE_MOTH && donor->type != TZ_TYPE_BASE) continue;
         if (donor->bee_out_count != 0) continue;
 
@@ -866,9 +974,12 @@ static void release_projectile_source(ZoneGame *g, struct Projectile *p) {
 
 static void deactivate_projectile(ZoneGame *g, struct Projectile *p) {
     if (!p || !p->active) return;
+    const int classic_slot = p->classic_slot;
     release_projectile_source(g, p);
     p->spatial_active = 0;
     p->active = 0;
+    p->classic_slot = -1;
+    classic_free_slot(g, classic_slot);
 }
 
 static int spawn_hostile_projectile_with_cap(ZoneGame *g, int source_slot, int source_cap) {
@@ -886,10 +997,19 @@ static int spawn_hostile_projectile_with_cap(ZoneGame *g, int source_slot, int s
     for (int i = 0; i < ZONE_PROJECTILE_CAP; ++i) {
         struct Projectile *p = &g->projectiles[i];
         if (p->active) continue;
+
+        /* HQ/base fire passes mode 0 (low-slot + insert-after-head). Moving
+           enemies/defenders pass mode 1 (high-slot + append-to-tail). */
+        const int mode = source->type == TZ_TYPE_BASE ? 0 : 1;
+        const int classic_slot = classic_allocate_and_link(
+            g, mode, ZONE_DEBUG_CLASSIC_PROJECTILE, i);
+        if (classic_slot < 0) return 0;
+
         p->active = 1;
         p->hostile = 1;
         p->spatial_active = 1;
         p->source_slot = source_slot;
+        p->classic_slot = classic_slot;
         p->x = source->x;
         p->y = source->y;
         const float fire_speed = tz_enemy_projectile_speed();
@@ -942,17 +1062,24 @@ static void update_hq_fire(ZoneGame *g, int slot) {
     (void)spawn_hostile_projectile_with_cap(g, slot, 0);
 }
 
-static int spawn_explosion_bank(ZoneGame *g, float x, float y,
-                                int base, int frames, int side,
-                                uint32_t previous_type) {
-    if (!classic_object_slot_available(g)) return 0;
+static int transform_slot_to_explosion_bank(ZoneGame *g, int classic_slot,
+                                            float x, float y,
+                                            int base, int frames, int side,
+                                            uint32_t previous_type) {
+    if (!g || classic_slot < 0 || classic_slot >= ZONE_CLASSIC_OBJECT_CAP ||
+        !g->classic_objects[classic_slot].occupied) return 0;
+
+    /* 0x107B4 rewrites the existing 150-byte record in place. No allocator
+       call occurs: the +138 position and exact table slot survive EXPL. */
     for (int i = 0; i < ZONE_EXPLOSION_CAP; ++i) {
         if (!g->explosions[i].active) {
             g->explosions[i] = (struct Explosion){
                 .active = 1, .previous_type = previous_type,
                 .x = x, .y = y, .action_age = -1,
                 .sprite_base = base, .frame_count = frames, .side = side,
+                .classic_slot = classic_slot,
             };
+            classic_rebind_slot(g, classic_slot, ZONE_DEBUG_CLASSIC_EXPLOSION, i);
             audio_push(g, ZONE_AUDIO_EXPLOSION, x, y);
             return 1;
         }
@@ -960,8 +1087,9 @@ static int spawn_explosion_bank(ZoneGame *g, float x, float y,
     return 0;
 }
 
-static void spawn_explosion(ZoneGame *g, float x, float y,
-                            int destroyed_side, uint32_t previous_type) {
+static int transform_slot_to_explosion(ZoneGame *g, int classic_slot,
+                                       float x, float y,
+                                       int destroyed_side, uint32_t previous_type) {
     int base = 1500, frames = 20, side = 32;
     switch (destroyed_side) {
         case 16: base = 700;   frames = 11; side = 16; break;
@@ -970,13 +1098,15 @@ static void spawn_explosion(ZoneGame *g, float x, float y,
         case 48: base = 20000; frames = 11; side = 48; break;
         default: break;
     }
-    (void)spawn_explosion_bank(g, x, y, base, frames, side, previous_type);
+    return transform_slot_to_explosion_bank(
+        g, classic_slot, x, y, base, frames, side, previous_type);
 }
 
-static void spawn_ship_explosion(ZoneGame *g, float x, float y) {
-    /* 0x107B4 transforms ship into the 20-frame EXPL bank and retains
-       previous_type='ship' for the 0x12080 animation cadence. */
-    (void)spawn_explosion_bank(g, x, y, 1500, 20, 32, TZ_TYPE_SHIP);
+static void transform_ship_to_explosion(ZoneGame *g, float x, float y) {
+    /* Player collision destruction calls 0x107B4 on the global head itself.
+       Slot 0 and its head position persist until 0x1663C reinitializes ship. */
+    (void)transform_slot_to_explosion_bank(
+        g, g->classic_head_slot, x, y, 1500, 20, 32, TZ_TYPE_SHIP);
 }
 
 static uint32_t select_asteroid_payload(ZoneGame *g) {
@@ -1032,13 +1162,16 @@ static void fragment_big_rock(ZoneGame *g, const struct WorldObject *o) {
 }
 
 static void activate_mobile_mother_after_player_kill(ZoneGame *g) {
-    /* PPC 0x19C38..0x19C98 walks the object list after a player-shot kill,
-       selects the first live Mother Base with state +84 != 0, and writes the
-       RandomRange(1,3) result to +86. The recovered helper's upper bound is
-       exclusive, so the selector is exactly 1 or 2. */
-    for (int i = 0; i < ZONE_WORLD_CAP; ++i) {
+    /* PPC 0x19C38..0x19C98 walks +138 from head->next, not the allocator
+       table. Preserve that ordering so reuse/insertion can affect which
+       eligible Mother is selected exactly as in Classic. */
+    for (int classic_slot = g->classic_objects[g->classic_head_slot].next_slot;
+         classic_slot >= 0;
+         classic_slot = g->classic_objects[classic_slot].next_slot) {
+        const int i = classic_world_index_for_slot(g, classic_slot);
+        if (i < 0) continue;
         struct WorldObject *m = &g->world[i];
-        if (!m->active || m->type != TZ_TYPE_MOTH || m->state_84 == 0) continue;
+        if (m->type != TZ_TYPE_MOTH || m->state_84 == 0) continue;
         m->mother_motion_state =
             tz_mother_motion_state_from_random_word((uint16_t)(rng_next(g) & 0xFFFFu));
         return;
@@ -1105,11 +1238,19 @@ static void destroy_world_object(ZoneGame *g, struct WorldObject *o) {
         if (g->enemies_remaining > 0) --g->enemies_remaining;
     }
 
-    /* Original destruction transforms this object into EXPL. Free the typed
-       world surrogate from the shared count before admitting EXPL. */
+    /* Original destruction calls 0x107B4 on this same record. Typed storage
+       changes from WorldObject -> Explosion, but the recovered table slot and
+       +138 list position remain exactly the same. */
+    const int classic_slot = o->classic_slot;
     o->active = 0;
+    o->classic_slot = -1;
     clear_world_contacts_for_slot(g, slot);
-    spawn_explosion(g, x, y, side, destroyed_type);
+    if (!transform_slot_to_explosion(g, classic_slot, x, y, side, destroyed_type)) {
+        /* The 80-entry explosion surrogate has at least one free typed entry
+           whenever this source occupies a Classic slot; keep a defensive
+           fallback rather than leaking allocator state. */
+        classic_free_slot(g, classic_slot);
+    }
 }
 
 static int apply_player_shot_to_world(ZoneGame *g, int slot, int damage) {
@@ -1152,7 +1293,7 @@ static void begin_player_death(ZoneGame *g) {
     g->respawn_pending = 1;
     g->player_vx = 0.0f;
     g->player_vy = 0.0f;
-    spawn_ship_explosion(g, g->player_x, g->player_y);
+    transform_ship_to_explosion(g, g->player_x, g->player_y);
 }
 
 static void respawn_player(ZoneGame *g) {
@@ -1166,6 +1307,7 @@ static void respawn_player(ZoneGame *g) {
     g->shields = 100;
     g->player_alive = 1;
     g->respawn_pending = 0;
+    classic_rebind_slot(g, g->classic_head_slot, ZONE_DEBUG_CLASSIC_PLAYER, -1);
     for (int i = 0; i < ZONE_WORLD_CAP; ++i) g->world[i].player_contact = 0;
 }
 
@@ -1207,14 +1349,19 @@ static void update_explosions_and_lifecycle(ZoneGame *g) {
 
         if (explosion_frame_at_age(e) >= e->frame_count) {
             const uint32_t previous_type = e->previous_type;
+            const int classic_slot = e->classic_slot;
             e->active = 0;
+            e->classic_slot = -1;
 
             if (previous_type == TZ_TYPE_SHIP) {
+                /* The head is never unlinked; 0x1663C reinitializes it in place. */
                 ship_explosion_finished = 1;
-            } else if (previous_type == TZ_TYPE_MOTH ||
-                       previous_type == TZ_TYPE_BASE) {
-                if (g->bases_remaining > 0) --g->bases_remaining;
-                if (g->bases_remaining == 0) base_objective_finished = 1;
+            } else {
+                classic_free_slot(g, classic_slot);
+                if (previous_type == TZ_TYPE_MOTH || previous_type == TZ_TYPE_BASE) {
+                    if (g->bases_remaining > 0) --g->bases_remaining;
+                    if (g->bases_remaining == 0) base_objective_finished = 1;
+                }
             }
         }
     }
@@ -1250,8 +1397,11 @@ static void collect_pickup(ZoneGame *g, struct WorldObject *o) {
         default:
             return;
     }
+    const int classic_slot = o->classic_slot;
     o->active = 0;
+    o->classic_slot = -1;
     clear_world_contacts_for_slot(g, slot);
+    classic_free_slot(g, classic_slot);
 }
 
 static int spawn_projectile(ZoneGame *g) {
@@ -1266,10 +1416,16 @@ static int spawn_projectile(ZoneGame *g) {
             tz_screen_direction_from_heading(g->heading, g_neg_sin_360, g_cos_360, &dx, &dy);
 
             struct Projectile *p = &g->projectiles[i];
+            /* PPC 0x122A0/0x12320 pass mode 0: lowest free table record,
+               inserted immediately after the persistent player/head. */
+            const int classic_slot = classic_allocate_and_link(
+                g, 0, ZONE_DEBUG_CLASSIC_PROJECTILE, i);
+            if (classic_slot < 0) return 0;
             p->active = 1;
             p->hostile = 0;
             p->spatial_active = 1;
             p->source_slot = -1;
+            p->classic_slot = classic_slot;
             /* Classic SHOT positions remain in screen space. Do not wrap a
                muzzle that extends past an edge; +128 spatial retirement owns
                the off-region lifecycle. */
@@ -1951,6 +2107,42 @@ int32_t zone_game_debug_classic_slots_used(const ZoneGame *g) {
     return classic_object_slots_used(g);
 }
 
+int32_t zone_game_debug_classic_head_slot(const ZoneGame *g) {
+    return g ? g->classic_head_slot : -1;
+}
+
+int32_t zone_game_debug_classic_slot_kind(const ZoneGame *g, int32_t slot) {
+    if (!g || slot < 0 || slot >= ZONE_CLASSIC_OBJECT_CAP ||
+        !g->classic_objects[slot].occupied) return ZONE_DEBUG_CLASSIC_FREE;
+    return g->classic_objects[slot].kind;
+}
+
+int32_t zone_game_debug_classic_next_slot(const ZoneGame *g, int32_t slot) {
+    if (!g || slot < 0 || slot >= ZONE_CLASSIC_OBJECT_CAP ||
+        !g->classic_objects[slot].occupied) return -1;
+    return g->classic_objects[slot].next_slot;
+}
+
+int32_t zone_game_debug_classic_list_rank(const ZoneGame *g, int32_t slot) {
+    if (!g || slot < 0 || slot >= ZONE_CLASSIC_OBJECT_CAP) return -1;
+    int rank = 0;
+    for (int current = g->classic_head_slot; current >= 0;
+         current = g->classic_objects[current].next_slot, ++rank) {
+        if (current == slot) return rank;
+    }
+    return -1;
+}
+
+int32_t zone_game_debug_world_classic_slot(const ZoneGame *g, int32_t index) {
+    if (!g || index < 0 || index >= ZONE_WORLD_CAP || !g->world[index].active) return -1;
+    return g->world[index].classic_slot;
+}
+
+int32_t zone_game_debug_projectile_classic_slot(const ZoneGame *g, int32_t index) {
+    if (!g || index < 0 || index >= ZONE_PROJECTILE_CAP || !g->projectiles[index].active) return -1;
+    return g->projectiles[index].classic_slot;
+}
+
 int32_t zone_game_debug_world_flash(const ZoneGame *g, int32_t index) {
     if (!g || index < 0 || index >= ZONE_WORLD_CAP || !g->world[index].active) return 0;
     return g->world[index].hit_flash_ticks ? 1 : 0;
@@ -1976,6 +2168,11 @@ static const struct Explosion *debug_nth_explosion(const ZoneGame *g, int32_t nt
         if (n++ == nth) return &g->explosions[i];
     }
     return NULL;
+}
+
+int32_t zone_game_debug_explosion_classic_slot(const ZoneGame *g, int32_t nth) {
+    const struct Explosion *e = debug_nth_explosion(g, nth);
+    return e ? e->classic_slot : -1;
 }
 
 int32_t zone_game_debug_explosion_frame(const ZoneGame *g, int32_t nth) {

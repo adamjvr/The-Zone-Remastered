@@ -49,8 +49,8 @@ Recovered or substantially mapped:
 
 Major remaining lifts:
 
-- remaining Mother Base/HQ collision/state edge semantics and original shared-object-pool behavior;
-- unresolved Bee/Seeker `+128` spatial-mode behavior around the now-live chase/hit-state handlers;
+- remaining Mother Base/HQ collision/state edge semantics;
+- original camera/world-to-screen transform plus remaining Bee/Seeker `+128/+129` spatial-mode behavior;
 - remaining Seeker edge states around the now-live 200-unit speed switch;
 - remaining hostile projectile collision special cases beyond recovered spatial retirement and base damage;
 - full special-case collision matrix;
@@ -82,9 +82,9 @@ Completed:
 
 The display-independent 720-Hz/native-refresh path is now live. Remaining platform work is product/UI polish, save/persistence integration, final iPad validation, and distribution work.
 
-## Phase 3 — Live Classic gameplay reconstruction — ~81%
+## Phase 3 — Live Classic gameplay reconstruction — ~84%
 
-**Current gameplay checkpoint: Milestone 1.9. Native product checkpoint 1.8.1 is accepted in parallel.**
+**Current gameplay checkpoint: Milestone 1.10. Native product checkpoint 1.8.1 is accepted in parallel.**
 
 Milestone 1.3 completes the recovered Bee/Seeker timed hit-state behavior currently supported by the portable object model. Bee and Seeker now honor their 60-TickCount `+66/+92` coast gates; Seeker player collision applies the recovered 30-tick timestamp backdate; and Professional Wave 2 regression-tests a real other-Mother Bee donor. The earlier "Bee return" roadmap wording is corrected because PPC `0x154A8` contains no parent-return state.
 
@@ -193,12 +193,16 @@ The native shell now has explicit controller/keyboard selection semantics instea
 
 The portable projectile model now follows the recovered `+128` live-region lifecycle instead of provisional 90/120-step counters. `shot` and `fire` no longer wrap across the 640x480 boundary; they remain action-active while their sprite overlaps the Classic live rectangle and are retired after leaving it. Continuous projectile position still advances on the 720-Hz master grid, while the spatial-state consequence stays on the 60-Hz Classic boundary. Off-region hostile fire releases the shooter's active-shot cap. Exact shared `+138` traversal/slot-reuse ordering and non-projectile `+128/+129` semantics remain separate work.
 
+### Milestone 1.10 — Shared Object Slots & +138 List Fidelity
+
+The portable core now tracks the recovered 80-record allocator identity and global `+138` object chain in addition to typed portable stores. The player remains persistent head/slot 0; low mode scans 0→79 and inserts after the head; high mode scans 79→0 and appends at the tail; unlink frees the exact record for directional reuse. Player shots/HQ fire and fixed/moving-object paths now use their recovered modes. Ship and world destruction transform the same Classic record into `EXPL`, preserving slot/list identity, and Bee-donor/mobile-Mother first-match scans follow recovered list order. `+129` is decoded as coarse spatial-cell registration, but live world `+128/+129` is intentionally deferred until the original camera/world-to-screen transform is restored.
+
 Next priorities:
 
-1. Milestone 2.0 procedural Waves 19+ plus remaining collision/destruction/equipment behavior;
-2. exact shared `+138` traversal/slot-reuse ordering and remaining non-projectile `+128/+129` spatial modes, including Bee/Seeker edges;
-3. native Continue/save-slot and Hall of Fame screens on the front-end shell;
-4. Classic Mac RNG/deterministic compatibility and continuous Classic Mode closure.
+1. Milestone 1.11 — recover the original camera/world-to-screen transform, then promote non-projectile `+128/+129` live-region and coarse spatial-cell state including Bee/Seeker edges;
+2. Milestone 2.0 — finish remaining Classic collision/destruction/equipment behavior on the recovered object/spatial foundation;
+3. Milestone 2.1 — recover procedural Waves 19+;
+4. Milestone 2.2+ — Classic Mac RNG compatibility, save/load + Hall of Fame, then continuous Classic Mode closure.
 
 ## Phase 4 — Full Classic Mode — ~32%
 
