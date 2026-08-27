@@ -42,6 +42,7 @@ struct Explosion {
     int frame_count;
     int side;
     int classic_slot;       /* transform preserves original 80-record identity */
+    int parent_slot;        /* Bee +142 donor retained through EXPL finalization */
 };
 
 struct WorldObject {
@@ -1195,7 +1196,7 @@ static int transform_slot_to_explosion_bank(ZoneGame *g, int classic_slot,
                 .active = 1, .previous_type = previous_type,
                 .x = x, .y = y, .action_age = -1,
                 .sprite_base = base, .frame_count = frames, .side = side,
-                .classic_slot = classic_slot,
+                .classic_slot = classic_slot, .parent_slot = -1,
             };
             classic_rebind_slot(g, classic_slot, ZONE_DEBUG_CLASSIC_EXPLOSION, i);
             audio_push(g, ZONE_AUDIO_EXPLOSION, x, y);
@@ -1303,6 +1304,7 @@ static void destroy_world_object(ZoneGame *g, struct WorldObject *o) {
     const float x = o->x;
     const float y = o->y;
     const int side = o->side;
+    const int bee_donor_slot = destroyed_type == TZ_TYPE_BEE ? o->parent_slot : -1;
     const int trace_bee_destroy = bee_trace_enabled() && destroyed_type == TZ_TYPE_BEE;
     const int trace_bee_donor_slot = trace_bee_destroy ? o->parent_slot : -1;
     const int trace_bee_requester_slot = trace_bee_destroy ? o->requester_slot : -1;
@@ -1327,7 +1329,8 @@ static void destroy_world_object(ZoneGame *g, struct WorldObject *o) {
             struct WorldObject *parent = &g->world[o->parent_slot];
             if (parent->active) {
                 if (destroyed_type == TZ_TYPE_BEE) {
-                    if (parent->bee_out_count > 0) --parent->bee_out_count;
+                    /* Bee Parity Pass 2: PPC +142 survives BEE -> EXPL.
+                       Donor +74 remains occupied until EXPL finalization. */
                 } else if (destroyed_type == TZ_TYPE_ROTO) {
                     /* Rotor is link2, not one of the +72 launched defenders. */
                     if (parent->rotor_slot == slot) parent->rotor_slot = -1;
@@ -1382,10 +1385,29 @@ static void destroy_world_object(ZoneGame *g, struct WorldObject *o) {
     o->active = 0;
     o->classic_slot = -1;
     clear_world_contacts_for_slot(g, slot);
-    if (!transform_slot_to_explosion(g, classic_slot, x, y, side, destroyed_type)) {
-        /* The 80-entry explosion surrogate has at least one free typed entry
-           whenever this source occupies a Classic slot; keep a defensive
-           fallback rather than leaking allocator state. */
+    const int transformed =
+        transform_slot_to_explosion(g, classic_slot, x, y, side, destroyed_type);
+    if (transformed) {
+        if (destroyed_type == TZ_TYPE_BEE && bee_donor_slot >= 0) {
+            for (int i = 0; i < ZONE_EXPLOSION_CAP; ++i) {
+                struct Explosion *e = &g->explosions[i];
+                if (!e->active || e->classic_slot != classic_slot ||
+                    e->previous_type != TZ_TYPE_BEE) continue;
+                e->parent_slot = bee_donor_slot;
+                break;
+            }
+        }
+    } else {
+        /* Defensive fallback: no EXPL means no later finalizer. */
+        if (destroyed_type == TZ_TYPE_BEE &&
+            bee_donor_slot >= 0 && bee_donor_slot < ZONE_WORLD_CAP) {
+            struct WorldObject *donor = &g->world[bee_donor_slot];
+            if (donor->active &&
+                (donor->type == TZ_TYPE_MOTH || donor->type == TZ_TYPE_BASE) &&
+                donor->bee_out_count > 0) {
+                --donor->bee_out_count;
+            }
+        }
         classic_free_slot(g, classic_slot);
     }
 }
@@ -1487,8 +1509,27 @@ static void update_explosions_and_lifecycle(ZoneGame *g) {
         if (explosion_frame_at_age(e) >= e->frame_count) {
             const uint32_t previous_type = e->previous_type;
             const int classic_slot = e->classic_slot;
+            const int parent_slot = e->parent_slot;
             e->active = 0;
             e->classic_slot = -1;
+            e->parent_slot = -1;
+
+            if (previous_type == TZ_TYPE_BEE &&
+                parent_slot >= 0 && parent_slot < ZONE_WORLD_CAP) {
+                struct WorldObject *donor = &g->world[parent_slot];
+                if (donor->active &&
+                    (donor->type == TZ_TYPE_MOTH || donor->type == TZ_TYPE_BASE) &&
+                    donor->bee_out_count > 0) {
+                    --donor->bee_out_count;
+                    if (bee_trace_enabled()) {
+                        fprintf(stderr,
+                                "[BEE_TRACE] event=bee_donor_release wave=%d tick=%u "
+                                "donor=%d donor_out_after=%d\n",
+                                g->wave, g->behavior_tick, parent_slot,
+                                donor->bee_out_count);
+                    }
+                }
+            }
 
             if (previous_type == TZ_TYPE_SHIP) {
                 /* The head is never unlinked; 0x1663C reinitializes it in place. */
@@ -2381,6 +2422,16 @@ int32_t zone_game_debug_world_defender_count(const ZoneGame *g, int32_t index) {
     return g->world[index].defender_count;
 }
 
+int32_t zone_game_debug_world_bee_out_count(const ZoneGame *g, int32_t index) {
+    if (!g || index < 0 || index >= ZONE_WORLD_CAP || !g->world[index].active) return -1;
+    return g->world[index].bee_out_count;
+}
+
+int32_t zone_game_debug_world_bee_request_count(const ZoneGame *g, int32_t index) {
+    if (!g || index < 0 || index >= ZONE_WORLD_CAP || !g->world[index].active) return -1;
+    return g->world[index].bee_request_count;
+}
+
 int32_t zone_game_debug_trigger_mother_defense(ZoneGame *g, int32_t index,
                                                int16_t gate_word, uint16_t batch_word) {
     if (!g) return 0;
@@ -2484,3 +2535,5 @@ int32_t zone_game_debug_spawn_hostile_unbounded(ZoneGame *g, int32_t source_inde
 /* Bee Parity Pass 0r1 trace-string repair */
 
 /* Bee Parity Pass 1 requester quota is cumulative for the wave */
+
+/* Bee Parity Pass 2 donor +74 releases at Bee EXPL finalization */

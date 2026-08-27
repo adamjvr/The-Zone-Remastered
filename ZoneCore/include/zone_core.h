@@ -154,6 +154,8 @@ int32_t zone_game_debug_world_hit_state(const ZoneGame *game, int32_t index);
 void zone_game_debug_set_world_hit_state(ZoneGame *game, int32_t index,
                                          int32_t state, uint32_t elapsed_ticks);
 int32_t zone_game_debug_world_defender_count(const ZoneGame *game, int32_t index);
+int32_t zone_game_debug_world_bee_out_count(const ZoneGame *game, int32_t index);
+int32_t zone_game_debug_world_bee_request_count(const ZoneGame *game, int32_t index);
 int32_t zone_game_debug_trigger_mother_defense(ZoneGame *game, int32_t index,
                                                int16_t gate_word, uint16_t batch_word);
 int32_t zone_game_debug_request_bee(ZoneGame *game, int32_t requester_index);

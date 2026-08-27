@@ -483,13 +483,29 @@ static void test_two_base_bee_request_linkage(void) {
     /* Wave-1 bee_limit is one request per requester. */
     assert(zone_game_debug_request_bee(g, requester) < 0);
 
+    assert(zone_game_debug_world_bee_out_count(g, donor) == 1);
+    assert(zone_game_debug_world_bee_request_count(g, requester) == 1);
+
     zone_game_debug_destroy_world(g, bee);
     assert(zone_game_count_type(g, TZ_TYPE_BEE) == 0);
     assert(zone_game_hud(g).enemies == 0);
+    assert(zone_game_debug_active_explosions(g) == 1);
 
-    /* Bee Parity Pass 1: destroying the Bee releases the donor in the
-       current portable lifecycle, but it must NOT refund the requesting
-       Mother's per-wave request quota. Wave-1 bee_limit is still one. */
+    /* Pass 2: donor +74 remains occupied throughout the Bee-derived EXPL,
+       while Pass 1 requester +76 remains cumulatively consumed. */
+    assert(zone_game_debug_world_bee_out_count(g, donor) == 1);
+    assert(zone_game_debug_world_bee_request_count(g, requester) == 1);
+    assert(zone_game_debug_request_bee(g, requester) < 0);
+
+    advance_ticks(g, 11);
+    assert(zone_game_debug_active_explosions(g) == 1);
+    assert(zone_game_debug_world_bee_out_count(g, donor) == 1);
+    assert(zone_game_debug_world_bee_request_count(g, requester) == 1);
+
+    advance_ticks(g, 1);
+    assert(zone_game_debug_active_explosions(g) == 0);
+    assert(zone_game_debug_world_bee_out_count(g, donor) == 0);
+    assert(zone_game_debug_world_bee_request_count(g, requester) == 1);
     assert(zone_game_debug_request_bee(g, requester) < 0);
     assert(zone_game_count_type(g, TZ_TYPE_BEE) == 0);
     zone_game_destroy(g);

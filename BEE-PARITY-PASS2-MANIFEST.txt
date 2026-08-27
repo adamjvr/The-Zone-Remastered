@@ -1,0 +1,25 @@
+The Zone Remastered — Bee Parity Pass 2
+Donor occupancy finalization timing ONLY
+
+Required:
+  Pass 0 instrumentation
+  Pass 0r1 trace repair
+  Pass 1 finite requester quota
+
+Gameplay behavior changed:
+  donor bee_out_count (+74) releases at Bee EXPL finalization instead of lethal hit
+
+Intentionally unchanged:
+  requester bee_request_count (+76)
+  Bee spawn quota
+  Bee firing
+  Bee motion/steering
+  collision response
+  placement/spatial behavior
+  RNG
+  wave composition
+
+Patched:
+  ZoneCore/src/zone_core.c
+  ZoneCore/include/zone_core.h (debug accessors only)
+  ZoneCore/tests/test_zone_core.c
