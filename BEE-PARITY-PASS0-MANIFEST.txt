@@ -1,0 +1,22 @@
+The Zone Remastered — Bee Parity Pass 0
+Known-good baseline instrumentation ONLY
+
+Expected baseline:
+  4d5568949bd6d2844547789dc85c6d9ec332c9c2
+
+Behavior changes:
+  NONE
+
+Patched:
+  ZoneCore/src/zone_core.c
+    optional ZONE_BEE_TRACE diagnostics only
+
+Added:
+  APPLY-BEE-PARITY-PASS0.command
+  Tools/apply-bee-parity-pass0.py
+  Tools/verify-bee-parity-pass0.command
+  Tools/run-macos-bee-trace.command
+  Tools/summarize-bee-trace.py
+  Docs/BEE-PARITY-PASSES.md
+  Docs/BEE-PARITY-PASS0.md
+  FILES-BEE-PARITY-PASS0.sha256

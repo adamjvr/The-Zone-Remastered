@@ -1,0 +1,19 @@
+The Zone Remastered — Bee Parity Pass 1
+Requester quota lifetime semantics ONLY
+
+Requires:
+  Bee Parity Pass 0 instrumentation
+  Bee Parity Pass 0r1 trace compile repair
+
+Changed:
+  Bee destruction no longer decrements requester bee_request_count.
+
+Unchanged:
+  donor bee_out_count release timing
+  Bee firing
+  Bee steering/motion
+  spatial/world behavior
+  placement
+  RNG
+  allocator
+  audio/rendering

@@ -1,0 +1,25 @@
+The Zone Remastered — Bee Parity Pass 0r1
+Trace-string compile repair ONLY
+
+Resume state:
+  Bee Parity Pass 0 instrumentation already applied
+  Existing compile currently fails at the two malformed diagnostic strings
+
+Patched:
+  ZoneCore/src/zone_core.c
+    escape two diagnostic newlines correctly
+  Tools/apply-bee-parity-pass0.py
+    prevent recurrence
+
+Cleanup:
+  Tools/__pycache__
+
+Added:
+  APPLY-BEE-PARITY-PASS0R1.command
+  Tools/repair-bee-parity-pass0r1.py
+  Tools/verify-bee-parity-pass0r1.command
+  Docs/BEE-PARITY-PASS0R1.md
+  FILES-BEE-PARITY-PASS0R1.sha256
+
+Gameplay changes:
+  NONE
