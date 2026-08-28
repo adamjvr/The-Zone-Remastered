@@ -1,0 +1,8 @@
+dd544c5756c1d53090197c9198b05ecdf8776687091c633cc6697460642a9f71  APPLY-ZONE-TEST-HARNESS-0.1.command
+d8c7b17c989f790b0cd8ecf2f684ab4c54a734a332aea4fc61fc548bec234d5e  Docs/ZONE-TEST-HARNESS-0.1.md
+7b426453e833505adbf1d1bc5f305bc1ae9c1d5c2cf2ffe80f08579593f0e3e0  Tools/apply-zone-test-harness-0.1.py
+39fe8d05c624cf3083046ea8069f84e5b5a3b711ec9441818f3881a18405ccdc  Tools/run-macos-zone-test.command
+08e51d1a83ab0ab9ae205d4cbf43b66f2655ed4969333a361387b30289047386  Tools/test-zone-test-harness.command
+8878c331a34886d73947abc7db8af900af91454d1bba170f5dd12acd46f005cb  Tools/verify-zone-test-harness-0.1.command
+d67fc112f83061c2fa6319601945252324764c5ce52fe4188e9baee186b7068a  ZONE-TEST-HARNESS-0.1-MANIFEST.txt
+189ed22624df06f13b771e0c1439e0bec8b00f334303441df73a95f7bd009d35  ZoneCore/tests/test_zone_jump_harness.c

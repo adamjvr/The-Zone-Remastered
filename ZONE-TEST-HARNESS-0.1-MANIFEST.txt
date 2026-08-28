@@ -1,0 +1,26 @@
+The Zone Remastered — Zone Test Harness 0.1
+Direct fixed-Zone startup for forensic testing
+
+Required checkpoint:
+  accepted Bee Parity Pass 2
+
+Gameplay changes:
+  NONE during ordinary launches
+
+Test-mode behavior:
+  ZONE_TEST_MODE=1 + ZONE_TEST_START_ZONE=1..18
+  starts ZoneCore on the selected fixed Zone
+
+Patched:
+  ZoneCore/src/zone_core.c
+
+Added:
+  APPLY-ZONE-TEST-HARNESS-0.1.command
+  Tools/apply-zone-test-harness-0.1.py
+  Tools/run-macos-zone-test.command
+  Tools/test-zone-test-harness.command
+  Tools/verify-zone-test-harness-0.1.command
+  ZoneCore/tests/test_zone_jump_harness.c
+  Docs/ZONE-TEST-HARNESS-0.1.md
+  ZONE-TEST-HARNESS-0.1-MANIFEST.txt
+  FILES-ZONE-TEST-HARNESS-0.1.sha256

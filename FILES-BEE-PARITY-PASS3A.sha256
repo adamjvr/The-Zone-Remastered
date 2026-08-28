@@ -1,0 +1,7 @@
+232a45e9c6ed0b5f30c6dcdf179e97fe5b87b43117e441aaaaa9999c1a38c248  APPLY-BEE-PARITY-PASS3A.command
+792e41c7280ade91aa8ace1ccfa6d36ac3f0ca5a1b145b892e2e93ba31dfdccf  Tools/apply-bee-parity-pass3a.py
+56b7c4281aad74109d6c000970a0fb27e830dcd1976c469a785130ddbe24e692  Tools/verify-bee-parity-pass3a.command
+84312a48ed684384a77863f0a03bb41aa9badb5145b188dd9e47d11aacc71c33  Tools/run-macos-bee-fire-trace.command
+d7b0de20b7533972c37e9574ce3bbd69f952616cf8b4468bc68de27dd5d18dd2  Tools/summarize-bee-fire-trace.py
+cb6927e0f50c39a18834b47bea8bc3b4301a2506bc01121e6e5a500dc3bf6a51  Docs/BEE-PARITY-PASS3A.md
+1dc2fa9c65c8576e9e1eb2ff26019855f803b2c46cb18903d4ca1d43922fab82  BEE-PARITY-PASS3A-MANIFEST.txt

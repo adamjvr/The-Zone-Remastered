@@ -1,0 +1,23 @@
+The Zone Remastered — Bee Parity Pass 3A
+Bee firing forensics ONLY
+
+Required accepted state:
+  Pass 1 finite requester quota
+  Pass 2 donor release at Bee EXPL finalization
+
+Gameplay changes:
+  NONE
+
+Patched:
+  ZoneCore/src/zone_core.c
+    optional ZONE_BEE_FIRE_TRACE diagnostics only
+
+Added:
+  APPLY-BEE-PARITY-PASS3A.command
+  Tools/apply-bee-parity-pass3a.py
+  Tools/verify-bee-parity-pass3a.command
+  Tools/run-macos-bee-fire-trace.command
+  Tools/summarize-bee-fire-trace.py
+  Docs/BEE-PARITY-PASS3A.md
+  BEE-PARITY-PASS3A-MANIFEST.txt
+  FILES-BEE-PARITY-PASS3A.sha256

@@ -136,6 +136,13 @@ static int bee_trace_enabled(void) {
     return value && value[0] != '\0' && strcmp(value, "0") != 0;
 }
 
+/* Pass 3A is deliberately observational. Keep the high-volume Bee fire trace
+ * on its own switch so ordinary Bee request tracing remains compact. */
+static int bee_fire_trace_enabled(void) {
+    const char *value = getenv("ZONE_BEE_FIRE_TRACE");
+    return value && value[0] != '\0' && strcmp(value, "0") != 0;
+}
+
 static int bee_trace_active_bees(const ZoneGame *g) {
     if (!g) return 0;
     int count = 0;
@@ -1153,18 +1160,51 @@ static int spawn_hostile_projectile(ZoneGame *g, int source_slot) {
 static void update_enemy_fire(ZoneGame *g, int slot) {
     if (!g->player_alive || slot < 0 || slot >= ZONE_WORLD_CAP) return;
     struct WorldObject *o = &g->world[slot];
+    const int trace_bee_fire = bee_fire_trace_enabled() && o->active && o->type == TZ_TYPE_BEE;
     const int cap = o->active ? tz_enemy_fire_active_cap(o->type) : 0;
-    if (cap <= 0 || o->hostile_shots >= cap) return;
+    if (cap <= 0 || o->hostile_shots >= cap) {
+        if (trace_bee_fire) {
+            fprintf(stderr,
+                    "[BEE_FIRE_TRACE] event=blocked wave=%d tick=%u bee=%d "
+                    "reason=shot_cap hostile_shots=%d cap=%d x=%.3f y=%.3f\n",
+                    g->wave, g->behavior_tick, slot, o->hostile_shots, cap,
+                    o->x, o->y);
+        }
+        return;
+    }
 
     /* Bee 0x154A8 and Seeker 0x15944 branch to their common return before
        Random() while +66 is in its timed state. Preserve RNG call ordering by
        suppressing the fire test itself rather than merely refusing the shot. */
     if ((o->type == TZ_TYPE_BEE || o->type == TZ_TYPE_SEEK) &&
-        enemy_hit_state_active(g, o)) return;
+        enemy_hit_state_active(g, o)) {
+        if (trace_bee_fire) {
+            fprintf(stderr,
+                    "[BEE_FIRE_TRACE] event=blocked wave=%d tick=%u bee=%d "
+                    "reason=hit_state hostile_shots=%d cap=%d x=%.3f y=%.3f\n",
+                    g->wave, g->behavior_tick, slot, o->hostile_shots, cap,
+                    o->x, o->y);
+        }
+        return;
+    }
 
+    /* IMPORTANT: the trace consumes no RNG. It observes the exact same word
+       already consumed by the pre-Pass-3A firing path. */
     const int16_t random_word = (int16_t)(rng_next(g) & 0xFFFFu);
-    if (tz_enemy_should_fire(o->type, random_word)) {
-        (void)spawn_hostile_projectile(g, slot);
+    const int fire_gate = tz_enemy_should_fire(o->type, random_word);
+    int fired = 0;
+    if (fire_gate) {
+        fired = spawn_hostile_projectile(g, slot);
+    }
+
+    if (trace_bee_fire) {
+        fprintf(stderr,
+                "[BEE_FIRE_TRACE] event=decision wave=%d tick=%u bee=%d "
+                "random_word=%d gate=%d fired=%d hostile_shots=%d cap=%d "
+                "x=%.3f y=%.3f vx=%.3f vy=%.3f player_x=%.3f player_y=%.3f\n",
+                g->wave, g->behavior_tick, slot, (int)random_word,
+                fire_gate, fired, o->hostile_shots, cap,
+                o->x, o->y, o->vx, o->vy, g->player_x, g->player_y);
     }
 }
 
@@ -1619,6 +1659,22 @@ static int spawn_projectile(ZoneGame *g) {
     return 0;
 }
 
+/* Test harness only. Normal gameplay does not consult a requested Zone
+ * unless ZONE_TEST_MODE is explicitly enabled. Keeping this in ZoneCore lets
+ * every host use the same forensic startup path without UI-specific hacks. */
+static int test_start_zone_from_environment(void) {
+    const char *mode = getenv("ZONE_TEST_MODE");
+    if (!mode || mode[0] == '\0' || strcmp(mode, "0") == 0) return 0;
+
+    const char *value = getenv("ZONE_TEST_START_ZONE");
+    if (!value || value[0] == '\0') return 0;
+
+    char *end = NULL;
+    const long zone = strtol(value, &end, 10);
+    if (!end || end == value || *end != '\0' || zone < 1 || zone > 18) return 0;
+    return (int)zone;
+}
+
 void zone_game_reset(ZoneGame *g, uint32_t seed) {
     ensure_trig_tables();
     memset(g, 0, sizeof(*g));
@@ -1635,6 +1691,15 @@ void zone_game_reset(ZoneGame *g, uint32_t seed) {
     g->professional = 1;
     g->player_alive = 1;
     populate_fixed_wave(g, 1);
+
+
+    /* Testing-only direct Zone startup. This intentionally uses the same
+       fixed-wave population path as zone_game_debug_load_fixed_wave(). */
+    const int test_start_zone = test_start_zone_from_environment();
+    if (test_start_zone > 1) {
+        g->wave = test_start_zone;
+        populate_fixed_wave(g, (unsigned)test_start_zone);
+    }
 }
 
 ZoneGame *zone_game_create(uint32_t seed) {
@@ -2537,3 +2602,7 @@ int32_t zone_game_debug_spawn_hostile_unbounded(ZoneGame *g, int32_t source_inde
 /* Bee Parity Pass 1 requester quota is cumulative for the wave */
 
 /* Bee Parity Pass 2 donor +74 releases at Bee EXPL finalization */
+
+/* Bee Parity Pass 3A firing forensics only */
+
+/* Zone Test Harness 0.1 environment-gated fixed-Zone startup */
